@@ -495,27 +495,33 @@ private fun QuantumSignalHero(prediction: QuantumPrediction) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // DKWin9 Special Formula Quick Strip: 10-Complement | 5-Cycle Echo | Repeat
+        // DKWin9 Special Formula Quick Strip: Diagonal P+N | Skip-1 Mid | 10-Comp | 5-Cycle Echo
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             SpecialFormulaMiniChip(
-                label = "10-COMP (10-N)",
+                label = "DIAG (P+N)",
+                value = "#${prediction.diagonalCrossCandidate}",
+                tint = NeonAmber,
+                modifier = Modifier.weight(1f)
+            )
+            SpecialFormulaMiniChip(
+                label = "SKIP-1 MID",
+                value = "#${prediction.skipOneMidpointCandidate}",
+                tint = NeonBlue,
+                modifier = Modifier.weight(1f)
+            )
+            SpecialFormulaMiniChip(
+                label = "10-COMP",
                 value = "#${prediction.tenComplementCandidate}",
                 tint = NeonGreen,
                 modifier = Modifier.weight(1f)
             )
             SpecialFormulaMiniChip(
-                label = "5-CYCLE ECHO",
+                label = "5-ECHO",
                 value = "#${prediction.fiveCycleEchoCandidate}",
                 tint = CyberCyan,
-                modifier = Modifier.weight(1f)
-            )
-            SpecialFormulaMiniChip(
-                label = "LAST REPEAT",
-                value = "#${prediction.repeatCandidate}",
-                tint = NeonAmber,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -569,9 +575,10 @@ private fun DkwinEnergyBoostCard(
         "HOT" -> prediction.hotNumbers.toSet()
         "COLD" -> prediction.coldNumbers.toSet()
         "COMP" -> setOf(
+            prediction.diagonalCrossCandidate,
+            prediction.skipOneMidpointCandidate,
             prediction.tenComplementCandidate,
-            prediction.fiveCycleEchoCandidate,
-            prediction.repeatCandidate
+            prediction.fiveCycleEchoCandidate
         )
         else -> setOf(prediction.primaryNumber, prediction.backupNumber) +
             prediction.energyRanking.filter { it.isSafeBoostPick }.map { it.number }.take(2)
@@ -607,10 +614,14 @@ private fun DkwinEnergyBoostCard(
                             color = NeonAmber
                         )
                         Text(
-                            text = "Top 3 Bonus Ranking + Anti-Crowd Trap Scanner",
+                            text = if (prediction.isRealEnergySynced) {
+                                "🟢 রিয়েল ডাটাবেস এনার্জি সংযুক্ত (WEB VIEW থেকে সিঙ্কড)"
+                            } else {
+                                "🧮 চার্ট ও মিসিং এআই মডেল (WEB VIEW-তে ⚡ খুললে রিয়েল সিঙ্ক হবে)"
+                            },
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 10.sp,
-                            color = CyberCyanDim
+                            color = if (prediction.isRealEnergySynced) NeonGreen else CyberCyanDim
                         )
                     }
                 }

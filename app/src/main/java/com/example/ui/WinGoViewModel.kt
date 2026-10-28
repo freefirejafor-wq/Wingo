@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import kotlin.math.roundToInt
 
 enum class EngineTab {
@@ -88,6 +89,7 @@ class WinGoViewModel(
 
     private val _selectedModeFlow = MutableStateFlow(GameMode.MODE_30S)
     private var lastWebViewUpdateMs: Long = 0L
+    private var latestRealEnergyMap: Map<Int, Pair<Int, Int>>? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val modeRecords: StateFlow<List<PredictionRecordEntity>> = _selectedModeFlow
@@ -127,7 +129,6 @@ class WinGoViewModel(
     private fun startPollingLoop() {
         viewModelScope.launch {
             while (isActive) {
-                // Only use OkHttp fallback if WebView bridge hasn't delivered fresh JSON in last 3.5s
                 if (System.currentTimeMillis() - lastWebViewUpdateMs > 3500L) {
                     pollNow()
                 }
@@ -138,6 +139,24 @@ class WinGoViewModel(
 
     fun onWebViewJsonReceived(json: String) {
         viewModelScope.launch {
+            // Check if the payload contains scraped live Energy Boost % from DKWin9
+            try {
+                if (json.contains("energyPercents")) {
+                    val obj = JSONObject(json)
+                    val arr = obj.optJSONArray("energyPercents")
+                    val deltas = obj.optJSONArray("energyDeltas")
+                    if (arr != null && arr.length() == 10) {
+                        val map = mutableMapOf<Int, Pair<Int, Int>>()
+                        for (i in 0..9) {
+                            val pct = arr.optInt(i, 10).coerceIn(1, 50)
+                            val dlt = deltas?.optInt(i, 1) ?: 1
+                            map[i] = pct to dlt
+                        }
+                        latestRealEnergyMap = map
+                    }
+                }
+            } catch (_: Throwable) {}
+
             val parsed = repository.parseWebViewJson(json)
             if (parsed.isNotEmpty()) {
                 lastWebViewUpdateMs = System.currentTimeMillis()
@@ -145,6 +164,12 @@ class WinGoViewModel(
                     draws = parsed,
                     isLive = true,
                     statusMessage = "LIVE API (${_uiState.value.selectedMode.label} • CHROMIUM)"
+                )
+            } else if (latestRealEnergyMap != null && _uiState.value.draws.isNotEmpty()) {
+                applyDrawsToEngine(
+                    draws = _uiState.value.draws,
+                    isLive = _uiState.value.isLiveApiConnected,
+                    statusMessage = "LIVE DKWIN9 DB ENERGY SYNCED"
                 )
             }
         }
@@ -154,6 +179,7 @@ class WinGoViewModel(
         if (_uiState.value.selectedMode == mode) return
         _selectedModeFlow.value = mode
         lastWebViewUpdateMs = 0L
+        latestRealEnergyMap = null
         _uiState.update {
             it.copy(
                 selectedMode = mode,
@@ -245,7 +271,8 @@ class WinGoViewModel(
         val quantumPred = QuantumPatternEngine.analyze(
             draws = draws,
             recentWinStreak = currentWinStreak,
-            recentLossStreak = currentLossStreak
+            recentLossStreak = currentLossStreak,
+            liveRealEnergyMap = latestRealEnergyMap
         )
 
         _uiState.update {

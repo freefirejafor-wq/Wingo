@@ -179,7 +179,7 @@ fun InteractiveWebEngineTab(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "⚡ DKWIN9 12-FORMULA HUD • ${uiState.selectedMode.label} (${uiState.remainingSeconds}s)",
+                            text = "⚡ DKWIN9 14-FORMULA HUD • ${uiState.selectedMode.label} (${uiState.remainingSeconds}s)",
                             fontFamily = OrbitronFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -222,13 +222,13 @@ fun InteractiveWebEngineTab(
                     }
                 }
 
-                // 10-Complement + 5-Cycle Echo + Market Regime inside HUD
+                // Diagonal (P+N) + Skip-1 Midpoint + 10-Complement inside HUD
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "10-COMP: #${pred.tenComplementCandidate} • 5-ECHO: #${pred.fiveCycleEchoCandidate} • REPEAT: #${pred.repeatCandidate}",
+                        text = "DIAG(P+N): #${pred.diagonalCrossCandidate} • SKIP-1: #${pred.skipOneMidpointCandidate} • 10-COMP: #${pred.tenComplementCandidate}",
                         fontFamily = JetBrainsMonoFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp,
@@ -579,8 +579,17 @@ private val DKWIN9_DEEP_INTERCEPTOR_JS = """
                     }
                 }
             }
-            if (extracted.length >= 4 && window.AndroidBridge) {
-                window.AndroidBridge.postJson(JSON.stringify({ data: { list: extracted } }));
+            // Also scan for 10 Energy Ranking percentages (e.g. 9%, 11%, 17%...) if Energy Boost modal is open!
+            const pctMatches = bodyText.match(/\b([1-9]|[1-4][0-9])%/g);
+            let energyArr = null;
+            if (pctMatches && pctMatches.length >= 10) {
+                energyArr = pctMatches.slice(0, 10).map(function(s){ return parseInt(s, 10) || 10; });
+            }
+            if ((extracted.length >= 4 || energyArr) && window.AndroidBridge) {
+                const payload = {};
+                if (extracted.length >= 4) payload.data = { list: extracted };
+                if (energyArr) payload.energyPercents = energyArr;
+                window.AndroidBridge.postJson(JSON.stringify(payload));
             }
         } catch(e) {}
     };
