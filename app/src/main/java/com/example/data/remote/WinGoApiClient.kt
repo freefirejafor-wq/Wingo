@@ -135,12 +135,7 @@ class WinGoApiClient {
             timeZone = TimeZone.getTimeZone("GMT+8")
         }
         val datePrefix = dateFormat.format(Date(now))
-        val modeCode = when (mode) {
-            GameMode.MODE_30S -> "10005"
-            GameMode.MODE_1M -> "10001"
-            GameMode.MODE_3M -> "10002"
-            GameMode.MODE_5M -> "10003"
-        }
+        val modeCode = "10005"
 
         return (0 until 30).map { offset ->
             val issueBucket = bucket - offset

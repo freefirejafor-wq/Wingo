@@ -11,28 +11,10 @@ enum class GameMode(
         label = "30S",
         periodMs = 30_000L,
         apiUrl = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json?ts="
-    ),
-    MODE_1M(
-        key = "1m",
-        label = "1M",
-        periodMs = 60_000L,
-        apiUrl = "https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json?ts="
-    ),
-    MODE_3M(
-        key = "3m",
-        label = "3M",
-        periodMs = 180_000L,
-        apiUrl = "https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json?ts="
-    ),
-    MODE_5M(
-        key = "5m",
-        label = "5M",
-        periodMs = 300_000L,
-        apiUrl = "https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json?ts="
     );
 
     companion object {
-        fun fromKey(key: String): GameMode = entries.find { it.key == key } ?: MODE_30S
+        fun fromKey(key: String): GameMode = MODE_30S
     }
 }
 
@@ -83,13 +65,10 @@ data class FormulaLeaderboardItem(
     val formulaNameBn: String,
     val liveWinRatePercent: Int,
     val nextVote: String,
-    val isTopTrick: Boolean
+    val isTopTrick: Boolean,
+    val isAutoReversed: Boolean = false
 )
 
-/**
- * Matches the logged-in WinGo Website "Chart" tab telemetry:
- * Frequency, Missing (current draws since last seen), Avg Missing, and Max Consecutive
- */
 data class ChartNumberStat(
     val number: Int,
     val frequency: Int,
@@ -98,11 +77,6 @@ data class ChartNumberStat(
     val maxConsecutive: Int
 )
 
-/**
- * Matches the logged-in DKWin9 "Energy Boost (WinGo 30sec)" modal telemetry:
- * Energy Ranking % (e.g., 17%, 12%, 11%), rank trend delta (e.g., ↑2, ↑6, ↓1),
- * Top 3 Medal rank (1 = +100%, 2 = +80%, 3 = +50%), and whether our engine marks it as a Safe Pick.
- */
 data class EnergyBallStat(
     val number: Int,
     val energyPercent: Int,
@@ -133,6 +107,9 @@ data class QuantumPrediction(
     val diagonalCrossCandidate: Int,
     val skipOneMidpointCandidate: Int,
     val isRealEnergySynced: Boolean,
+    val trainedDrawsCount: Int,
+    val aiDiscoveredRuleBn: String,
+    val autoReversedCount: Int,
     val triggers: List<PatternTrigger>,
     val layerVotes: List<LayerVote>,
     val formulaLeaderboard: List<FormulaLeaderboardItem>,

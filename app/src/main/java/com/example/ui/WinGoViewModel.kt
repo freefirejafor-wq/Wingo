@@ -46,10 +46,12 @@ data class WinGoUiState(
     val draws: List<DrawItem> = emptyList(),
     val prediction: QuantumPrediction = QuantumPatternEngine.analyze(emptyList()),
     val isLiveApiConnected: Boolean = true,
-    val apiStatusText: String = "CONNECTING TO AR-LOTTERY API...",
+    val apiStatusText: String = "CONNECTING TO WINGO 30S...",
     val isSyncing: Boolean = false,
     val syncTriggerCount: Int = 0,
     val matrixAnimationEnabled: Boolean = true,
+    val winNotificationEnabled: Boolean = true,
+    val latestWinRecord: PredictionRecordEntity? = null,
     val totalCapitalInput: String = "1000",
     val selectedStepCount: Int = 5,
     val multiplierScale: Float = 2.0f
@@ -108,8 +110,7 @@ class WinGoViewModel(
     private fun startCountdownLoop() {
         viewModelScope.launch {
             while (isActive) {
-                val mode = _uiState.value.selectedMode
-                val periodMs = mode.periodMs
+                val periodMs = GameMode.MODE_30S.periodMs
                 val now = System.currentTimeMillis()
                 val remainMs = periodMs - (now % periodMs)
                 val remainSec = ((remainMs + 999L) / 1000L).toInt()
@@ -129,7 +130,7 @@ class WinGoViewModel(
     private fun startPollingLoop() {
         viewModelScope.launch {
             while (isActive) {
-                if (System.currentTimeMillis() - lastWebViewUpdateMs > 3500L) {
+                if (System.currentTimeMillis() - lastWebViewUpdateMs > 3000L) {
                     pollNow()
                 }
                 delay(2000L)
@@ -139,7 +140,6 @@ class WinGoViewModel(
 
     fun onWebViewJsonReceived(json: String) {
         viewModelScope.launch {
-            // Check if the payload contains scraped live Energy Boost % from DKWin9
             try {
                 if (json.contains("energyPercents")) {
                     val obj = JSONObject(json)
@@ -160,10 +160,14 @@ class WinGoViewModel(
             val parsed = repository.parseWebViewJson(json)
             if (parsed.isNotEmpty()) {
                 lastWebViewUpdateMs = System.currentTimeMillis()
+                val accumulated = repository.persistAndGetAccumulatedDraws(
+                    GameMode.MODE_30S.key,
+                    parsed
+                )
                 applyDrawsToEngine(
-                    draws = parsed,
+                    draws = accumulated,
                     isLive = true,
-                    statusMessage = "LIVE API (${_uiState.value.selectedMode.label} • CHROMIUM)"
+                    statusMessage = "LIVE 30S API (VAULT: ${accumulated.size})"
                 )
             } else if (latestRealEnergyMap != null && _uiState.value.draws.isNotEmpty()) {
                 applyDrawsToEngine(
@@ -176,20 +180,8 @@ class WinGoViewModel(
     }
 
     fun selectMode(mode: GameMode) {
-        if (_uiState.value.selectedMode == mode) return
-        _selectedModeFlow.value = mode
-        lastWebViewUpdateMs = 0L
-        latestRealEnergyMap = null
-        _uiState.update {
-            it.copy(
-                selectedMode = mode,
-                isSyncing = true,
-                syncTriggerCount = it.syncTriggerCount + 1
-            )
-        }
-        viewModelScope.launch {
-            pollNow()
-        }
+        // Locked to WinGo 30S only
+        forceSync()
     }
 
     fun selectTab(tab: EngineTab) {
@@ -198,6 +190,10 @@ class WinGoViewModel(
 
     fun toggleMatrixAnimation() {
         _uiState.update { it.copy(matrixAnimationEnabled = !it.matrixAnimationEnabled) }
+    }
+
+    fun setWinNotificationEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(winNotificationEnabled = enabled) }
     }
 
     fun updateCapitalInput(value: String) {
@@ -214,9 +210,8 @@ class WinGoViewModel(
     }
 
     fun resetCurrentModeStats() {
-        val mode = _uiState.value.selectedMode
         viewModelScope.launch {
-            repository.clearModeStats(mode.key)
+            repository.clearModeStats(GameMode.MODE_30S.key)
             pollNow()
         }
     }
@@ -235,8 +230,7 @@ class WinGoViewModel(
 
     private suspend fun pollNow() {
         try {
-            val mode = _uiState.value.selectedMode
-            val result = repository.fetchLiveDraws(mode)
+            val result = repository.fetchLiveDraws(GameMode.MODE_30S)
             if (result.draws.isNotEmpty()) {
                 applyDrawsToEngine(
                     draws = result.draws,
@@ -254,8 +248,7 @@ class WinGoViewModel(
         isLive: Boolean,
         statusMessage: String
     ) {
-        val mode = _uiState.value.selectedMode
-        repository.resolveAndStorePrediction(mode, draws)
+        val newlyWon = repository.resolveAndStorePrediction(GameMode.MODE_30S, draws)
 
         val resolvedRecords = modeRecords.value.filter { it.isWin != null }
         var currentWinStreak = 0
@@ -281,7 +274,8 @@ class WinGoViewModel(
                 prediction = quantumPred,
                 isLiveApiConnected = isLive,
                 apiStatusText = statusMessage,
-                isSyncing = false
+                isSyncing = false,
+                latestWinRecord = newlyWon.firstOrNull() ?: it.latestWinRecord
             )
         }
     }

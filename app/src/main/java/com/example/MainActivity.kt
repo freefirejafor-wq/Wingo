@@ -67,6 +67,12 @@ import com.example.ui.theme.CyberCyanDim
 import com.example.ui.theme.CyberObsidian
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.ui.theme.MyApplicationTheme
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import com.example.service.WinGoNotificationHelper
 import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.OrbitronFamily
 
@@ -95,6 +101,50 @@ fun WinGoPatternEngineApp() {
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val records by viewModel.modeRecords.collectAsStateWithLifecycle()
+
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            WinGoNotificationHelper.setWinNotificationEnabled(context, true)
+            viewModel.setWinNotificationEnabled(true)
+            WinGoNotificationHelper.startBackgroundEngine(context)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val initialPref = WinGoNotificationHelper.isWinNotificationEnabled(context)
+        viewModel.setWinNotificationEnabled(initialPref)
+        WinGoNotificationHelper.ensureChannels(context)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !WinGoNotificationHelper.hasNotificationPermission(context)
+        ) {
+            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            WinGoNotificationHelper.startBackgroundEngine(context)
+        }
+    }
+
+    // Trigger compact WIN notification whenever a new round wins!
+    LaunchedEffect(uiState.latestWinRecord?.targetPeriod) {
+        val winRec = uiState.latestWinRecord
+        if (winRec != null && winRec.isWin == true && uiState.winNotificationEnabled) {
+            val resolved = records.filter { it.isWin != null }
+            val winCount = resolved.count { it.isWin == true }.coerceAtLeast(1)
+            val lossCount = resolved.count { it.isWin == false }
+            var streak = 0
+            for (r in resolved) {
+                if (r.isWin == true) streak++ else break
+            }
+            WinGoNotificationHelper.notifyWinIfNew(
+                context = context,
+                winRecord = winRec,
+                winCount = winCount,
+                lossCount = lossCount,
+                streak = streak.coerceAtLeast(1)
+            )
+        }
+    }
 
     if (uiState.selectedTab != EngineTab.LIVE_SIGNAL) {
         BackHandler {
@@ -140,11 +190,12 @@ fun WinGoPatternEngineApp() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = 620.dp)
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Header Banner
+                    // Ultra-Slim Header Bar
                     EngineHeader(
+                        trainedCount = uiState.prediction.trainedDrawsCount.coerceAtLeast(uiState.draws.size),
                         matrixEnabled = uiState.matrixAnimationEnabled,
                         onToggleMatrix = viewModel::toggleMatrixAnimation
                     )
@@ -156,7 +207,22 @@ fun WinGoPatternEngineApp() {
                                 records = records,
                                 onSelectMode = viewModel::selectMode,
                                 onForceSync = viewModel::forceSync,
-                                onResetStats = viewModel::resetCurrentModeStats
+                                onResetStats = viewModel::resetCurrentModeStats,
+                                onToggleWinNotif = {
+                                    val nextState = !uiState.winNotificationEnabled
+                                    if (nextState &&
+                                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                        !WinGoNotificationHelper.hasNotificationPermission(context)
+                                    ) {
+                                        notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        WinGoNotificationHelper.setWinNotificationEnabled(context, nextState)
+                                        viewModel.setWinNotificationEnabled(nextState)
+                                        if (nextState) {
+                                            WinGoNotificationHelper.startBackgroundEngine(context)
+                                        }
+                                    }
+                                }
                             )
                         }
 
@@ -182,7 +248,7 @@ fun WinGoPatternEngineApp() {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         }
@@ -191,45 +257,67 @@ fun WinGoPatternEngineApp() {
 
 @Composable
 private fun EngineHeader(
+    trainedCount: Int,
     matrixEnabled: Boolean,
     onToggleMatrix: () -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Text(
-                text = "⚡ WINGO PATTERN ENGINE ⚡",
+                text = "👑 DKWIN9 VIP 30S PRO",
                 fontFamily = OrbitronFamily,
                 fontWeight = FontWeight.Black,
-                fontSize = 18.sp,
-                color = CyberCyan,
+                fontSize = 14.sp,
+                color = com.example.ui.theme.VipGold,
                 modifier = Modifier.testTag("app_header_title")
             )
-            Text(
-                text = "10-LAYER AUTO-CALIBRATED WEBSITE SEED AI",
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 11.sp,
-                color = CyberCyanDim
-            )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(NeonGreen.copy(alpha = 0.14f))
+                    .border(1.dp, NeonGreen.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "🧠 $trainedCount",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 9.sp,
+                    color = NeonGreen
+                )
+            }
         }
 
-        IconButton(
-            onClick = onToggleMatrix,
+        Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF081B2E))
-                .border(1.dp, CyberCyan.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                .testTag("toggle_matrix_button")
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF0E172A))
+                .border(1.dp, com.example.ui.theme.VipGold.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                .clickable(onClick = onToggleMatrix)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .testTag("toggle_matrix_button"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.GridOn,
-                contentDescription = "Toggle Matrix Effect",
-                tint = if (matrixEnabled) NeonGreen else CyberCyanDim
+                contentDescription = "Toggle Aura FX",
+                tint = if (matrixEnabled) com.example.ui.theme.VipGold else CyberCyanDim,
+                modifier = Modifier.size(12.dp)
+            )
+            Text(
+                text = if (matrixEnabled) "✨ VIP FX" else "FX OFF",
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 9.sp,
+                color = if (matrixEnabled) com.example.ui.theme.VipGold else CyberCyanDim
             )
         }
     }
@@ -241,38 +329,47 @@ private fun CyberBottomNavBar(
     onSelectTab: (EngineTab) -> Unit
 ) {
     val items = listOf(
-        Triple(EngineTab.LIVE_SIGNAL, "SIGNAL", Icons.Default.Bolt),
-        Triple(EngineTab.ANALYTICS, "TRICKS", Icons.Default.Analytics),
-        Triple(EngineTab.FUND_PLANNER, "PLANNER", Icons.Default.Calculate),
-        Triple(EngineTab.WEB_ENGINE, "WEB VIEW", Icons.Default.Public)
+        Triple(EngineTab.LIVE_SIGNAL, "VIP 30S", Icons.Default.Bolt),
+        Triple(EngineTab.ANALYTICS, "AI MATRIX", Icons.Default.Analytics),
+        Triple(EngineTab.FUND_PLANNER, "VIP FUND", Icons.Default.Calculate),
+        Triple(EngineTab.WEB_ENGINE, "LIVE GAME", Icons.Default.Public)
     )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF040D19).copy(alpha = 0.96f))
-            .border(width = 1.dp, color = CyberCyan.copy(alpha = 0.22f))
+            .background(Color(0xFF060B16).copy(alpha = 0.97f))
+            .border(width = 1.dp, color = com.example.ui.theme.VipGold.copy(alpha = 0.25f))
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         items.forEach { (tab, label, icon) ->
             val selected = selectedTab == tab
-            val tint = if (selected) Color(0xFF00141A) else CyberCyan
-            val bg = if (selected) CyberCyan else Color(0xFF081726)
+            val tint = if (selected) Color(0xFF090D16) else com.example.ui.theme.VipGold
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .minimumInteractiveComponentSize()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(bg)
+                    .background(
+                        if (selected) {
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(com.example.ui.theme.VipGold, com.example.ui.theme.VipGoldDeep)
+                            )
+                        } else {
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(Color(0xFF0E172A), Color(0xFF0A1120))
+                            )
+                        }
+                    )
                     .border(
                         1.dp,
-                        if (selected) CyberCyan else CyberCyan.copy(alpha = 0.2f),
+                        if (selected) com.example.ui.theme.VipGold else com.example.ui.theme.VipGold.copy(alpha = 0.22f),
                         RoundedCornerShape(10.dp)
                     )
                     .clickable { onSelectTab(tab) }
-                    .padding(vertical = 10.dp, horizontal = 4.dp)
+                    .padding(vertical = 7.dp, horizontal = 4.dp)
                     .testTag("nav_tab_${tab.name.lowercase()}"),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -281,14 +378,14 @@ private fun CyberBottomNavBar(
                     imageVector = icon,
                     contentDescription = label,
                     tint = tint,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(13.dp)
                 )
                 Spacer(modifier = Modifier.size(3.dp))
                 Text(
                     text = label,
                     fontFamily = OrbitronFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 8.5.sp,
                     color = tint,
                     textAlign = TextAlign.Center,
                     maxLines = 1

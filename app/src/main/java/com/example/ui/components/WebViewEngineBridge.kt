@@ -243,44 +243,23 @@ fun InteractiveWebEngineTab(
                     )
                 }
 
-                // Quick Mode Switcher inside HUD
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                // Dedicated WinGo 30S Status Badge inside HUD
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(CyberCyan.copy(alpha = 0.14f))
+                        .border(1.dp, CyberCyan.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                        .padding(vertical = 5.dp, horizontal = 8.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    GameMode.entries.forEach { m ->
-                        val sel = m == uiState.selectedMode
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (sel) CyberCyan else Color(0xFF081521))
-                                .clickable {
-                                    onSelectMode(m)
-                                    val gameCode = when (m) {
-                                        GameMode.MODE_30S -> "WinGo_30S"
-                                        GameMode.MODE_1M -> "WinGo_1M"
-                                        GameMode.MODE_3M -> "WinGo_3M"
-                                        GameMode.MODE_5M -> "WinGo_5M"
-                                    }
-                                    if (activeExternalUrl != null) {
-                                        val targetUrl = "https://dkwin9.com/#/saasLottery/WinGo?gameCode=$gameCode&lottery=WinGo"
-                                        urlInput = targetUrl
-                                        activeExternalUrl = targetUrl
-                                    }
-                                }
-                                .padding(vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = m.label,
-                                fontFamily = OrbitronFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                color = if (sel) Color.Black else CyberCyan
-                            )
-                        }
-                    }
+                    Text(
+                        text = "⚡ WINGO 30S EXCLUSIVE • 🧠 VAULT: ${pred.trainedDrawsCount} DRAWS • ${pred.aiDiscoveredRuleBn}",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = CyberCyan
+                    )
                 }
 
                 Text(
@@ -642,10 +621,7 @@ tr:nth-child(even){background:rgba(0,255,255,.04);}
 <header>⚡ WINGO LIVE WEB ENGINE ⚡</header>
 <div class="card">
 <div class="buttons">
-<button class="btn active" onclick="changeMode('30s',this)">30S</button>
-<button class="btn" onclick="changeMode('1m',this)">1M</button>
-<button class="btn" onclick="changeMode('3m',this)">3M</button>
-<button class="btn" onclick="changeMode('5m',this)">5M</button>
+<button class="btn active" onclick="changeMode('30s',this)">⚡ WINGO 30S LIVE MARKET</button>
 </div>
 <div class="top">
 <div class="timer-text" id="timerText">--s</div>

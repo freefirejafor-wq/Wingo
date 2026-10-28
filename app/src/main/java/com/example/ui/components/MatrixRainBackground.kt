@@ -35,12 +35,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.CyberBorder
 import com.example.ui.theme.CyberCardBg
+import com.example.ui.theme.CyberCardBgDark
 import com.example.ui.theme.CyberCyan
+import com.example.ui.theme.NeonAmber
 import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonRed
 import com.example.ui.theme.OrbitronFamily
+import com.example.ui.theme.VipGold
 import kotlinx.coroutines.delay
 
 @Composable
@@ -53,20 +55,20 @@ fun MatrixRainBackground(
     LaunchedEffect(enabled) {
         if (!enabled) return@LaunchedEffect
         while (true) {
-            delay(85L)
+            delay(90L)
             tick++
         }
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "scanline")
-    val scanY by infiniteTransition.animateFloat(
+    val infiniteTransition = rememberInfiniteTransition(label = "vipAura")
+    val auraShift by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 4200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+            animation = tween(durationMillis = 5200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
         ),
-        label = "scanY"
+        label = "auraShift"
     )
 
     Canvas(modifier = modifier.fillMaxSize()) {
@@ -74,79 +76,102 @@ fun MatrixRainBackground(
         val h = size.height
         if (w <= 10f || h <= 10f) return@Canvas
 
+        // Luxury Radial Ambient Glow (Top Gold & Center Emerald)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    VipGold.copy(alpha = 0.08f + auraShift * 0.03f),
+                    Color.Transparent
+                ),
+                center = Offset(w * 0.25f, h * 0.08f),
+                radius = w * 0.75f
+            ),
+            radius = w * 0.75f,
+            center = Offset(w * 0.25f, h * 0.08f)
+        )
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    NeonGreen.copy(alpha = 0.06f + (1f - auraShift) * 0.03f),
+                    Color.Transparent
+                ),
+                center = Offset(w * 0.8f, h * 0.35f),
+                radius = w * 0.7f
+            ),
+            radius = w * 0.7f,
+            center = Offset(w * 0.8f, h * 0.35f)
+        )
+
         if (enabled) {
-            val colWidth = 26.dp.toPx().coerceAtLeast(18f)
-            val cols = (w / colWidth).toInt().coerceIn(8, 36)
-            val rowHeight = 18.dp.toPx().coerceAtLeast(14f)
+            val colWidth = 32.dp.toPx().coerceAtLeast(22f)
+            val cols = (w / colWidth).toInt().coerceIn(8, 30)
+            val rowHeight = 20.dp.toPx().coerceAtLeast(15f)
             val maxRows = (h / rowHeight).toInt().coerceAtLeast(15)
 
             for (c in 0 until cols) {
-                val speed = (c % 3) + 1
-                val headRow = ((tick * speed + c * 7) % (maxRows + 8)).toInt()
-                val x = c * colWidth + (colWidth * 0.3f)
+                val speed = (c % 2) + 1
+                val headRow = ((tick * speed + c * 5) % (maxRows + 10)).toInt()
+                val x = c * colWidth + (colWidth * 0.4f)
 
-                for (trail in 0..5) {
+                for (trail in 0..4) {
                     val r = headRow - trail
                     if (r in 0 until maxRows) {
                         val y = r * rowHeight
                         val alpha = when (trail) {
-                            0 -> 0.34f
-                            1 -> 0.22f
-                            2 -> 0.14f
-                            3 -> 0.09f
-                            else -> 0.04f
+                            0 -> 0.24f
+                            1 -> 0.14f
+                            2 -> 0.08f
+                            else -> 0.03f
                         }
-                        val barColor = if (trail == 0) NeonGreen.copy(alpha = alpha) else CyberCyan.copy(alpha = alpha)
-                        // Draw digital matrix glyph segments using fast GPU primitives (zero text layout overhead!)
+                        val barColor = when {
+                            trail == 0 && c % 2 == 0 -> VipGold.copy(alpha = alpha)
+                            trail == 0 -> NeonGreen.copy(alpha = alpha)
+                            else -> CyberCyan.copy(alpha = alpha)
+                        }
                         drawRoundRect(
                             color = barColor,
                             topLeft = Offset(x, y),
-                            size = Size(3.dp.toPx(), (rowHeight * 0.65f)),
+                            size = Size(2.5.dp.toPx(), (rowHeight * 0.55f)),
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
                         )
                     }
                 }
             }
         }
-
-        // Subtle CRT Scanline band
-        val bandTop = (scanY * h)
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    CyberCyan.copy(alpha = 0.06f),
-                    Color.Transparent
-                ),
-                startY = (bandTop - 80f).coerceAtLeast(0f),
-                endY = (bandTop + 80f).coerceAtMost(h)
-            ),
-            topLeft = Offset(0f, (bandTop - 80f).coerceAtLeast(0f)),
-            size = Size(w, 160f)
-        )
     }
 }
 
 @Composable
 fun CyberCard(
     modifier: Modifier = Modifier,
-    borderColor: Color = CyberBorder.copy(alpha = 0.35f),
+    borderColor: Color = VipGold.copy(alpha = 0.28f),
+    paddingDp: Dp = 10.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = modifier
             .clip(shape)
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        CyberCardBg.copy(alpha = 0.92f),
-                        Color(0xFF040D1A).copy(alpha = 0.94f)
+                        CyberCardBg.copy(alpha = 0.95f),
+                        CyberCardBgDark.copy(alpha = 0.98f)
                     )
                 )
             )
-            .border(width = 1.dp, color = borderColor, shape = shape)
-            .padding(16.dp),
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        borderColor,
+                        borderColor.copy(alpha = 0.14f)
+                    )
+                ),
+                shape = shape
+            )
+            .padding(paddingDp),
         content = content
     )
 }
@@ -156,12 +181,12 @@ fun CircularCountdownTimer(
     remainingSeconds: Int,
     progress: Float,
     modifier: Modifier = Modifier,
-    sizeDp: Dp = 94.dp
+    sizeDp: Dp = 42.dp
 ) {
     val ringColor = when {
         remainingSeconds <= 5 -> NeonRed
-        remainingSeconds <= 10 -> NeonGreen
-        else -> CyberCyan
+        remainingSeconds <= 10 -> NeonAmber
+        else -> NeonGreen
     }
 
     Box(
@@ -169,12 +194,12 @@ fun CircularCountdownTimer(
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 7.dp.toPx()
+            val strokeWidth = if (sizeDp < 50.dp) 3.5.dp.toPx() else 6.dp.toPx()
             val diameter = size.minDimension - strokeWidth
             val topLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
 
             drawArc(
-                color = Color(0xFF102235),
+                color = Color(0xFF1A243B),
                 startAngle = 0f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -198,7 +223,7 @@ fun CircularCountdownTimer(
             text = "${remainingSeconds}s",
             fontFamily = OrbitronFamily,
             fontWeight = FontWeight.Black,
-            fontSize = 21.sp,
+            fontSize = if (sizeDp < 50.dp) 11.sp else 18.sp,
             color = ringColor
         )
     }

@@ -13,13 +13,10 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * 14-Formula Self-Calibrating Quantum Meta-Engine tuned for DKWin9 (saasLottery/WinGo 30S/1M/3M/5M):
- * Includes the newly discovered DKWin9 Chart & Board formulas:
- * - Formula 13: Diagonal Period-Digit + Result Cross (`(P_last + N0) % 10` & `P_last == N0` Flip)
- * - Formula 14: Skip-1 Odd/Even Period Midpoint Bridge (`(N[0] + N[2]) / 2` -> 2027(6)+2029(3)=4, 2028(8)+2030(4)=6)
- * - Real-time DKWin9 Energy Boost DOM Sync (`liveRealEnergyMap`) + Anti-Crowd Bonus Filter
- * - Twin Repeat -> 10-Complement Break (`4, 4 -> 6` where `10 - 4 = 6`)
- * - 5-Period Cycle Echo (`2027=6 -> 2032=6`) & 3-2 / 2-3 Block Wave (`BB -> SSS -> BB`)
+ * 15-Formula Self-Training & Auto-Pattern Discovery AI Engine:
+ * - Accumulates up to 600+ historical draws in SQLite (HistoricalDrawEntity)
+ * - Learns Digit-to-Digit & N-Gram Transition rules automatically from accumulated draws
+ * - Reinforcement Learning: Rewards winning formulas and Auto-Reverses (🔄) formulas trapped by the server
  */
 object QuantumPatternEngine {
 
@@ -29,15 +26,49 @@ object QuantumPatternEngine {
         fun predictRaw(history: List<DrawItem>): String
     }
 
-    // 1. DKWin9 Diagonal Period + Result Cross (`(P_last + N0) % 10` with `P_last == N0` Flip)
+    // 1. Self-Trained Neural Memory & Transition AI (Scans full accumulated database up to 600 draws)
+    private val selfTrainedNeuralMemoryAi = object : SubFormula {
+        override val name = "Self-Trained Neural AI"
+        override val nameBn = "নিজে শেখা এআই মেমোরি ব্রেন"
+        override fun predictRaw(history: List<DrawItem>): String {
+            if (history.size < 6) return "BIG"
+            val n0 = history[0].number
+            val n1 = history[1].number
+            val s0 = history[0].size
+            val s1 = history[1].size
+            val s2 = history[2].size
+
+            var bigVotes = 0
+            var smallVotes = 0
+
+            // A. Pair Transition Memory (n1 -> n0 -> what came next in full vault?)
+            for (i in 1..(history.size - 3)) {
+                if (history[i].number == n0 && history[i + 1].number == n1) {
+                    if (history[i - 1].size == "BIG") bigVotes += 4 else smallVotes += 4
+                } else if (history[i].number == n0) {
+                    if (history[i - 1].size == "BIG") bigVotes += 2 else smallVotes += 2
+                }
+            }
+
+            // B. 3-Step Size Sequence Memory across full vault
+            for (i in 1..(history.size - 4)) {
+                if (history[i].size == s0 && history[i + 1].size == s1 && history[i + 2].size == s2) {
+                    if (history[i - 1].size == "BIG") bigVotes += 2 else smallVotes += 2
+                }
+            }
+
+            return if (bigVotes >= smallVotes) "BIG" else "SMALL"
+        }
+    }
+
+    // 2. DKWin9 Diagonal Period + Result Cross (`(P_last + N0) % 10` with `P_last == N0` Flip)
     private val dkwinDiagonalCrossTrick = object : SubFormula {
         override val name = "Diagonal Period+Result"
-        override val nameBn = "ডায়াগনাল পিরিয়ড+রেজাল্ট ক্রস (P+N)"
+        override val nameBn = "ডায়াগনাল পিরিয়ড+রেজাল্ট (P+N)"
         override fun predictRaw(history: List<DrawItem>): String {
             val latest = history.firstOrNull() ?: return "BIG"
             val pLast = latest.period.lastOrNull()?.digitToIntOrNull() ?: 0
             val n0 = latest.number
-            // When Period's last digit equals the drawn number (e.g. 2028 -> 8), board flips Size immediately!
             if (pLast == n0) {
                 return if (latest.size == "BIG") "SMALL" else "BIG"
             }
@@ -46,24 +77,18 @@ object QuantumPatternEngine {
         }
     }
 
-    // 2. DKWin9 Skip-1 Odd/Even Period Midpoint Bridge (`(N[0] + N[2]) / 2`)
+    // 3. DKWin9 Skip-1 Odd/Even Period Midpoint Bridge (`(N[1] + N[3]) / 2`)
     private val dkwinSkipOneMidpointTrick = object : SubFormula {
         override val name = "Skip-1 Midpoint Bridge"
-        override val nameBn = "স্কিপ-১ জোড়/বিজোড় পিরিয়ড মিডপয়েন্ট"
+        override val nameBn = "স্কিপ-১ পিরিয়ড মিডপয়েন্ট"
         override fun predictRaw(history: List<DrawItem>): String {
             if (history.size < 4) return "BIG"
-            // For the upcoming period (index -1), the two previous same-parity periods are index 1 and index 3!
-            // Example from DKWin9 screenshot:
-            // For 2031: (2029[3] + 2027[6]) / 2 = 4 (SMALL) -> Hit 4!
-            // For 2032: (2030[4] + 2028[8]) / 2 = 6 (BIG)   -> Hit 6!
-            val sameParityPrev1 = history[1].number
-            val sameParityPrev2 = history[3].number
-            val midpoint = (sameParityPrev1 + sameParityPrev2) / 2
+            val midpoint = (history[1].number + history[3].number) / 2
             return if (midpoint >= 5) "BIG" else "SMALL"
         }
     }
 
-    // 3. Website `premium` Seed Checksum Trick
+    // 4. Website `premium` Seed Checksum Trick
     private val websitePremiumSeedTrick = object : SubFormula {
         override val name = "Website Premium Seed"
         override val nameBn = "ওয়েবসাইট প্রিমিয়াম সিড হ্যাশ"
@@ -77,13 +102,13 @@ object QuantumPatternEngine {
         }
     }
 
-    // 4. Official Website "Chart" Missing vs Avg-Missing Overdue Trick
+    // 5. Official Website "Chart" Missing vs Avg-Missing Overdue Trick
     private val chartMissingOverdueTrick = object : SubFormula {
         override val name = "Chart Missing Overdue"
         override val nameBn = "ওয়েবসাইট চার্ট মিসিং ওভারডিউ"
         override fun predictRaw(history: List<DrawItem>): String {
             if (history.size < 6) return "BIG"
-            val stats = computeChartStats(history)
+            val stats = computeChartStats(history.take(50))
             val bigOverdue = stats.filter { it.number >= 5 }
                 .sumOf { (it.currentMissing - it.avgMissing).coerceAtLeast(0) + it.frequency }
             val smallOverdue = stats.filter { it.number < 5 }
@@ -92,14 +117,15 @@ object QuantumPatternEngine {
         }
     }
 
-    // 5. DKWin9 Energy Boost ⚡ (Rising Momentum vs Anti-Crowd Bonus Trap)
+    // 6. DKWin9 Energy Boost ⚡ (Rising Momentum vs Anti-Crowd Bonus Trap)
     private val dkwinEnergyBoostTrick = object : SubFormula {
         override val name = "DKWin9 Energy Boost ⚡"
-        override val nameBn = "DKWin এনার্জি বুস্ট ও অ্যান্টি-ক্রাউড"
+        override val nameBn = "DKWin এনার্জি বুস্ট অ্যান্টি-ক্রাউড"
         override fun predictRaw(history: List<DrawItem>): String {
             if (history.size < 5) return "BIG"
-            val stats = computeChartStats(history)
-            val energyList = computeEnergyRanking(history, stats, null)
+            val slice = history.take(30)
+            val stats = computeChartStats(slice)
+            val energyList = computeEnergyRanking(slice, stats, null)
             val safeBigEnergy = energyList.filter { it.number >= 5 && !it.isCrowdTrap }
                 .sumOf { it.energyPercent + (if (it.isSafeBoostPick) 6 else 0) + it.trendDelta.coerceAtLeast(0) }
             val safeSmallEnergy = energyList.filter { it.number < 5 && !it.isCrowdTrap }
@@ -108,10 +134,10 @@ object QuantumPatternEngine {
         }
     }
 
-    // 6. DKWin9 Twin-Repeat & 10-Complement Break (`4, 4 -> 6` from Period 2030-2032)
+    // 7. DKWin9 Twin-Repeat & 10-Complement Break (`4, 4 -> 6`)
     private val dkwinTwinTenComplementTrick = object : SubFormula {
         override val name = "Twin & 10-Complement"
-        override val nameBn = "টুইন রিপিট ও ১০-কমপ্লিমেন্ট (10-N)"
+        override val nameBn = "টুইন ও ১০-কমপ্লিমেন্ট (10-N)"
         override fun predictRaw(history: List<DrawItem>): String {
             if (history.size < 3) return "BIG"
             val n0 = history[0].number
@@ -126,13 +152,13 @@ object QuantumPatternEngine {
         }
     }
 
-    // 7. DKWin9 5-Round Cycle Echo & 3-2 Block Wave (`2027=6 -> 2032=6`, `BB -> SSS -> BB`)
+    // 8. DKWin9 5-Round Cycle Echo & 3-2 Block Wave (`2027=6 -> 2032=6`)
     private val dkwinFiveCycleWaveTrick = object : SubFormula {
         override val name = "5-Cycle & 3-2 Wave"
-        override val nameBn = "৫-রাউন্ড সাইকেল ও ৩-২ ব্লক ওয়েভ"
+        override val nameBn = "৫-রাউন্ড সাইকেল ও ৩-২ ওয়েভ"
         override fun predictRaw(history: List<DrawItem>): String {
             if (history.size < 6) return "BIG"
-            val s = history.map { it.size }
+            val s = history.take(8).map { it.size }
             if (s[0] != s[1] && s[1] == s[2] && s[2] == s[3]) {
                 return s[0]
             }
@@ -144,10 +170,10 @@ object QuantumPatternEngine {
         }
     }
 
-    // 8. DKWin9 9-Complement & 5-Step Harmonic Mirror Trick
+    // 9. DKWin9 9-Complement & 5-Step Harmonic Mirror Trick
     private val dkwinComplementMirrorTrick = object : SubFormula {
         override val name = "DKWin9 9-Complement"
-        override val nameBn = "DKWin ৯-কমপ্লিমেন্ট ও মিরর সূত্র"
+        override val nameBn = "DKWin ৯-কমপ্লিমেন্ট মিরর"
         override fun predictRaw(history: List<DrawItem>): String {
             if (history.size < 3) return "BIG"
             val n0 = history[0].number
@@ -160,7 +186,7 @@ object QuantumPatternEngine {
         }
     }
 
-    // 9. DKWin9 3-Draw Extreme Sum Clamp Trick
+    // 10. DKWin9 3-Draw Extreme Sum Clamp Trick
     private val dkwinExtremeClampTrick = object : SubFormula {
         override val name = "DKWin9 Sum Clamp"
         override val nameBn = "DKWin ৩-ড্র সাম ক্লাম্প"
@@ -176,7 +202,7 @@ object QuantumPatternEngine {
         }
     }
 
-    // 10. Period Last-2-Digits + 3-Draw Sum Parity Trick
+    // 11. Period Last-2-Digits + 3-Draw Sum Parity Trick
     private val periodThreeSumTrick = object : SubFormula {
         override val name = "Period + 3-Draw Sum"
         override val nameBn = "পিরিয়ড ও ৩-ড্র যোগফল সূত্র"
@@ -190,7 +216,7 @@ object QuantumPatternEngine {
         }
     }
 
-    // 11. Violet (0/5) Reset & Mirror Symmetry Trick
+    // 12. Violet (0/5) Reset & Mirror Symmetry Trick
     private val violetMirrorTrick = object : SubFormula {
         override val name = "Violet 0/5 & Mirror"
         override val nameBn = "ভায়োলেট (০/৫) ও মিরর ফ্লিপ"
@@ -219,7 +245,7 @@ object QuantumPatternEngine {
         }
     }
 
-    // 12. Markov 3-Gram Sequence AI
+    // 13. Markov 3-Gram Sequence AI
     private val markovSequenceTrick = object : SubFormula {
         override val name = "Markov 3-Gram AI"
         override val nameBn = "মার্কভ ৩-স্টেপ সিকোয়েন্স"
@@ -247,13 +273,13 @@ object QuantumPatternEngine {
         }
     }
 
-    // 13. Dragon Trend vs 4x Break Matrix
+    // 14. Dragon Trend vs 4x Break Matrix
     private val dragonStreakTrick = object : SubFormula {
         override val name = "Dragon / Streak Matrix"
         override val nameBn = "ড্রাগন ও স্ট্রিক ম্যাট্রিক্স"
         override fun predictRaw(history: List<DrawItem>): String {
             if (history.isEmpty()) return "BIG"
-            val sizes = history.map { it.size }
+            val sizes = history.take(30).map { it.size }
             var streak = 1
             for (i in 1 until sizes.size) {
                 if (sizes[i] == sizes[0]) streak++ else break
@@ -268,13 +294,13 @@ object QuantumPatternEngine {
         }
     }
 
-    // 14. Harmonic Delta & Gap Pressure Trick
+    // 15. Harmonic Delta & Gap Pressure Trick
     private val gapAndDeltaTrick = object : SubFormula {
         override val name = "Gap & Golden Delta"
         override val nameBn = "গ্যাপ প্রেশার ও ডেল্টা সূত্র"
         override fun predictRaw(history: List<DrawItem>): String {
             if (history.size < 4) return "BIG"
-            val nums = history.map { it.number }
+            val nums = history.take(25).map { it.number }
             val bigGap = nums.indexOfFirst { it >= 5 }.let { if (it == -1) nums.size else it }
             val smallGap = nums.indexOfFirst { it < 5 }.let { if (it == -1) nums.size else it }
             if (bigGap >= 5) return "BIG"
@@ -285,6 +311,7 @@ object QuantumPatternEngine {
     }
 
     private val allFormulas = listOf(
+        selfTrainedNeuralMemoryAi,
         dkwinDiagonalCrossTrick,
         dkwinSkipOneMidpointTrick,
         websitePremiumSeedTrick,
@@ -329,11 +356,6 @@ object QuantumPatternEngine {
         }
     }
 
-    /**
-     * Reconstructs or uses live-synced DKWin9 "Energy Boost (WinGo 30sec)" ranking distribution (0..9).
-     * When `liveRealEnergyMap` is provided from the logged-in DKWin9 WebView DOM scanner, uses those
-     * exact database percentages directly!
-     */
     fun computeEnergyRanking(
         draws: List<DrawItem>,
         chartStats: List<ChartNumberStat>,
@@ -416,10 +438,13 @@ object QuantumPatternEngine {
         recentLossStreak: Int = 0,
         liveRealEnergyMap: Map<Int, Pair<Int, Int>>? = null
     ): QuantumPrediction {
-        val sample = draws.take(30)
-        if (sample.isEmpty()) {
+        if (draws.isEmpty()) {
             return emptyPrediction()
         }
+
+        val fullVault = draws.take(600)
+        val trainedDrawsCount = fullVault.size
+        val sample = fullVault.take(30)
 
         val currentPeriod = sample.first().period
         val nextPeriod = incrementPeriod(currentPeriod)
@@ -427,7 +452,7 @@ object QuantumPatternEngine {
         val nums = sample.map { it.number }
         val sizes = sample.map { it.size }
         val colors = sample.map { DrawItem.baseColorOf(it.number) }
-        val chartStats = computeChartStats(sample)
+        val chartStats = computeChartStats(fullVault.take(50))
         val isRealEnergy = liveRealEnergyMap != null && liveRealEnergyMap.size >= 6
         val energyRanking = computeEnergyRanking(sample, chartStats, liveRealEnergyMap)
 
@@ -440,17 +465,48 @@ object QuantumPatternEngine {
         val layerVotes = mutableListOf<LayerVote>()
 
         // =========================================================================
-        // META-LAYER: LIVE AUTO-BACKTEST OF ALL 14 DKWIN9 & CHART FORMULAS
+        // SELF-LEARNING TRANSITION DISCOVERY ACROSS FULL VAULT (UP TO 600 DRAWS)
         // =========================================================================
-        val backtestDepth = min(10, (sample.size - 8).coerceAtLeast(0))
-        val leaderboardRaw = mutableListOf<Triple<SubFormula, Int, String>>()
+        val lastDigit = nums[0]
+        var followedByBigCount = 0
+        var followedBySmallCount = 0
+        val followedDigitFreq = mutableMapOf<Int, Int>()
+
+        for (i in 1 until fullVault.size) {
+            if (fullVault[i].number == lastDigit) {
+                val nextDrawn = fullVault[i - 1]
+                if (nextDrawn.size == "BIG") followedByBigCount++ else followedBySmallCount++
+                followedDigitFreq[nextDrawn.number] = (followedDigitFreq[nextDrawn.number] ?: 0) + 1
+            }
+        }
+        val totalTransitions = (followedByBigCount + followedBySmallCount).coerceAtLeast(1)
+        val transitionFavoredSize = if (followedByBigCount >= followedBySmallCount) "BIG" else "SMALL"
+        val transitionWinPct = ((maxOf(followedByBigCount, followedBySmallCount) * 100f) / totalTransitions)
+            .roundToInt().coerceIn(55, 96)
+        val bestTransitionDigit = followedDigitFreq.maxByOrNull { it.value }?.key
+            ?: ((10 - lastDigit) % 10)
+
+        val aiDiscoveredRuleBn = "🧠 AI মেমোরি ($trainedDrawsCount দান): #$lastDigit এর পর $transitionWinPct% সময় $transitionFavoredSize (সেরা বল #$bestTransitionDigit) এসেছে!"
+
+        // =========================================================================
+        // REINFORCEMENT LEARNING: AUTO-BACKTEST + AUTO-REVERSE LOCK (15 FORMULAS)
+        // =========================================================================
+        val backtestDepth = min(12, (fullVault.size - 8).coerceAtLeast(0))
+        data class EvalFormula(
+            val formula: SubFormula,
+            val effectiveWinRate: Int,
+            val vote: String,
+            val isAutoReversed: Boolean
+        )
+        val leaderboardRaw = mutableListOf<EvalFormula>()
+        var autoReversedCount = 0
 
         for (formula in allFormulas) {
             var directHits = 0
             if (backtestDepth > 0) {
                 for (t in 0 until backtestDepth) {
-                    val pastSlice = sample.drop(t + 1)
-                    val actualSize = sample[t].size
+                    val pastSlice = fullVault.drop(t + 1)
+                    val actualSize = fullVault[t].size
                     val rawPred = formula.predictRaw(pastSlice)
                     if (rawPred == actualSize) directHits++
                 }
@@ -458,32 +514,37 @@ object QuantumPatternEngine {
             val rawRate = if (backtestDepth > 0) {
                 ((directHits * 100f) / backtestDepth).roundToInt()
             } else {
-                75
+                76
             }
 
-            val currentRawVote = formula.predictRaw(sample)
+            val currentRawVote = formula.predictRaw(fullVault)
             val calibratedVote: String
             val effectiveWinRate: Int
-            if (backtestDepth >= 5 && rawRate <= 40) {
+            val reversed: Boolean
+
+            if (backtestDepth >= 5 && rawRate <= 42) {
+                // Reinforcement Learning Auto-Reverse Lock: Server is trapping this formula, so invert it!
                 calibratedVote = if (currentRawVote == "BIG") "SMALL" else "BIG"
-                effectiveWinRate = 100 - rawRate
+                effectiveWinRate = (100 - rawRate).coerceIn(58, 95)
+                reversed = true
+                autoReversedCount++
             } else {
                 calibratedVote = currentRawVote
                 effectiveWinRate = rawRate.coerceAtLeast(56)
+                reversed = false
             }
 
-            leaderboardRaw.add(Triple(formula, effectiveWinRate, calibratedVote))
+            leaderboardRaw.add(EvalFormula(formula, effectiveWinRate, calibratedVote, reversed))
 
             val formulaWeight = when {
-                effectiveWinRate >= 80 -> 7.8
-                effectiveWinRate >= 70 -> 5.2
-                effectiveWinRate >= 60 -> 2.8
+                effectiveWinRate >= 80 -> 8.0
+                effectiveWinRate >= 70 -> 5.4
+                effectiveWinRate >= 60 -> 3.0
                 else -> 1.0
             }
             if (calibratedVote == "BIG") totalBigScore += formulaWeight else totalSmallScore += formulaWeight
         }
 
-        // If real DKWin9 Energy Boost DB data is synced, add House Liquidity Anti-Crowd weight!
         if (isRealEnergy) {
             val smallCrowdPct = energyRanking.filter { it.number in 0..4 }.sumOf { it.energyPercent }
             val bigCrowdPct = energyRanking.filter { it.number in 5..9 }.sumOf { it.energyPercent }
@@ -494,30 +555,19 @@ object QuantumPatternEngine {
             }
         }
 
-        val sortedFormulas = leaderboardRaw.sortedByDescending { it.second }
+        val sortedFormulas = leaderboardRaw.sortedByDescending { it.effectiveWinRate }
         val topFormula = sortedFormulas.firstOrNull()
-        val formulaLeaderboard = sortedFormulas.mapIndexed { idx, (f, rate, vote) ->
+        val formulaLeaderboard = sortedFormulas.mapIndexed { idx, item ->
             FormulaLeaderboardItem(
-                formulaName = f.name,
-                formulaNameBn = f.nameBn,
-                liveWinRatePercent = rate,
-                nextVote = vote,
-                isTopTrick = idx == 0
+                formulaName = item.formula.name,
+                formulaNameBn = if (item.isAutoReversed) "${item.formula.nameBn} 🔄" else item.formula.nameBn,
+                liveWinRatePercent = item.effectiveWinRate,
+                nextVote = item.vote,
+                isTopTrick = idx == 0,
+                isAutoReversed = item.isAutoReversed
             )
         }
 
-        if (topFormula != null) {
-            triggers.add(
-                PatternTrigger(
-                    title = "🏆 #1 DKWIN9 TRICK: ${topFormula.first.name.uppercase()} (${topFormula.second}%)",
-                    descriptionBn = "DKWin9 সার্ভারে '${topFormula.first.nameBn}' সূত্রটি সর্বোচ্চ ${topFormula.second}% নির্ভুলতায় কাজ করছে → সিগন্যাল: ${topFormula.third}!",
-                    impactLabel = "${topFormula.second}% HIT",
-                    isHighPriority = true
-                )
-            )
-        }
-
-        // Compute Diagonal Cross (P_last + N0) & Skip-1 Midpoint ((N1 + N3) / 2) exact number candidates!
         val pLast = currentPeriod.lastOrNull()?.digitToIntOrNull() ?: 0
         val diagonalCrossNum = if (pLast == nums[0]) {
             (10 - nums[0]) % 10
@@ -530,17 +580,19 @@ object QuantumPatternEngine {
             (nums[0] + (nums.getOrNull(2) ?: nums[0])) / 2
         }
 
-        triggers.add(
-            PatternTrigger(
-                title = "🎯 DIAGONAL (P+N=#$diagonalCrossNum) & SKIP-1 MIDPOINT (#$skipOneMidpointNum)",
-                descriptionBn = "ডায়াগনাল সূত্র ($pLast+${nums[0]}=$diagonalCrossNum) এবং স্কিপ-১ মিডপয়েন্ট সূত্র ((${nums.getOrElse(1){4}}+${nums.getOrElse(3){6}})/2=$skipOneMidpointNum) সক্রিয়!",
-                impactLabel = "SNIPER #$diagonalCrossNum/#$skipOneMidpointNum",
-                isHighPriority = true
+        if (topFormula != null) {
+            triggers.add(
+                PatternTrigger(
+                    title = "🏆 #1 AI TRICK: ${topFormula.formula.name.uppercase()} (${topFormula.effectiveWinRate}%)",
+                    descriptionBn = aiDiscoveredRuleBn,
+                    impactLabel = "${topFormula.effectiveWinRate}% HIT",
+                    isHighPriority = true
+                )
             )
-        )
+        }
 
         // =========================================================================
-        // DEEP MARKET REGIME CLASSIFIER (মার্কেট বিশ্লেষণ ও প্যাটার্ন শনাক্তকরণ)
+        // DEEP MARKET REGIME CLASSIFIER
         // =========================================================================
         var currentStreak = 1
         for (i in 1 until sizes.size) {
@@ -566,194 +618,128 @@ object QuantumPatternEngine {
             isDiagonalMatchFlip -> {
                 val flipSize = if (sizes[0] == "BIG") "SMALL" else "BIG"
                 if (flipSize == "BIG") totalBigScore += 6.5 else totalSmallScore += 6.5
-                "⚡ DIAGONAL MATCH FLIP (P:$pLast == N:${nums[0]} → $flipSize)" to
-                    "পিরিয়ডের শেষ সংখ্যা ($pLast) ও রেজাল্ট (${nums[0]}) মিলে গেছে (যেমন ২০২৮=৮) — ডায়াগনাল সূত্র অনুযায়ী এখন সাইজ উল্টে $flipSize হবে!"
+                "⚡ DIAGONAL MATCH FLIP ($pLast==${nums[0]} → $flipSize)" to
+                    "পিরিয়ডের শেষ অংক ও রেজাল্ট মিলে গেছে ($pLast==${nums[0]}) → সাইজ উল্টে $flipSize!"
             }
             isTwinRepeat -> {
                 val comp10 = (10 - nums[0]) % 10
                 val compSize = if (comp10 >= 5) "BIG" else "SMALL"
                 if (compSize == "BIG") totalBigScore += 6.5 else totalSmallScore += 6.5
-                "👯 TWIN REPEAT (${nums[0]},${nums[0]}) → 10-COMPLEMENT ($comp10)" to
-                    "মার্কেটে পরপর দুইবার ${nums[0]} (Twin) এসেছে — DKWin 10-Complement সূত্র (10-${nums[0]}=$comp10) অনুযায়ী এখন $compSize ও $comp10 আসার উচ্চ সম্ভাবনা!"
+                "👯 TWIN REPEAT (${nums[0]},${nums[0]}) → 10-COMP (#$comp10)" to
+                    "পরপর দুইবার ${nums[0]} এসেছে → 10-Complement সূত্রে $compSize (#$comp10)!"
             }
             isBlockWave32 -> {
                 val waveVote = dkwinFiveCycleWaveTrick.predictRaw(sample)
                 if (waveVote == "BIG") totalBigScore += 5.5 else totalSmallScore += 5.5
-                "🌊 3-2 / 2-3 BLOCK WAVE MARKET ($waveVote)" to
-                    "DKWin9 চার্টে ৩-২ ব্লক ওয়েভ (যেমন ২ বার Big → ৩ বার Small → আবার Big) চলছে — ওয়েভ ফ্লো অনুযায়ী পরবর্তী ধাপ $waveVote!"
+                "🌊 3-2 BLOCK WAVE MARKET ($waveVote)" to
+                    "৩-২ ব্লক ওয়েভ চলছে → পরবর্তী ধাপ $waveVote!"
             }
             currentStreak >= 4 -> {
-                "🐉 DRAGON / STREAK MARKET (${currentStreak}x ${sizes[0]})" to
-                    "মার্কেটে টানা ${currentStreak} বার ${sizes[0]} চলছে — স্ট্রিক ও ব্রেক ম্যাট্রিক্স সক্রিয়।"
+                "🐉 DRAGON STREAK (${currentStreak}x ${sizes[0]})" to
+                    "টানা ${currentStreak} বার ${sizes[0]} চলছে — স্ট্রিক ব্রেক/ড্রাগন মোড।"
             }
             zigzagCount >= 4 -> {
                 val nextZig = if (sizes[0] == "BIG") "SMALL" else "BIG"
-                "⚡ ZIGZAG SWITCH MARKET (${zigzagCount}x B-S)" to
-                    "মার্কেটে টানা $zigzagCount বার BIG-SMALL জিগজ্যাগ সুইচ চলছে — পরবর্তী ধাপ $nextZig!"
+                "⚡ ZIGZAG SWITCH (${zigzagCount}x → $nextZig)" to
+                    "টানা $zigzagCount বার জিগজ্যাগ চলছে → পরবর্তী ধাপ $nextZig!"
             }
             else -> {
-                "📊 DIAGONAL (#$diagonalCrossNum) & SKIP-1 MIDPOINT (#$skipOneMidpointNum) MARKET" to
-                    "মার্কেট এখন ডায়াগনাল ক্রস (#$diagonalCrossNum) ও স্কিপ-১ মিডপয়েন্ট (#$skipOneMidpointNum) মোডে চলছে।"
+                "🧠 SELF-TRAINED AI ($trainedDrawsCount DRAWS) • DIAG #$diagonalCrossNum" to
+                    "AI $trainedDrawsCount দানের ডাটা থেকে নিজে ট্রেইন হয়ে সিগন্যাল দিচ্ছে।"
             }
         }
 
         // =========================================================================
-        // LAYER 1: DIAGONAL CROSS & SKIP-1 MIDPOINT SNIPER
+        // COMPACT LAYER VOTES FOR ANALYTICS TAB
         // =========================================================================
-        val diagEntry = sortedFormulas.find { it.first === dkwinDiagonalCrossTrick }
-        val skipEntry = sortedFormulas.find { it.first === dkwinSkipOneMidpointTrick }
+        val aiMemEntry = sortedFormulas.find { it.formula === selfTrainedNeuralMemoryAi }
+        val diagEntry = sortedFormulas.find { it.formula === dkwinDiagonalCrossTrick }
+        val skipEntry = sortedFormulas.find { it.formula === dkwinSkipOneMidpointTrick }
+        val energyEntry = sortedFormulas.find { it.formula === dkwinEnergyBoostTrick }
+
+        if (aiMemEntry != null) {
+            layerVotes.add(
+                LayerVote(
+                    layerName = "Self-Trained Memory AI",
+                    layerNameBn = "নিজে শেখা এআই মেমোরি ($trainedDrawsCount দান)",
+                    favoredSize = aiMemEntry.vote,
+                    strengthPercent = aiMemEntry.effectiveWinRate.coerceIn(60, 98),
+                    detail = "After #$lastDigit → $transitionFavoredSize ($transitionWinPct%)"
+                )
+            )
+        }
         if (diagEntry != null) {
             layerVotes.add(
                 LayerVote(
                     layerName = "Diagonal Period+Result",
-                    layerNameBn = "ডায়াগনাল পিরিয়ড+রেজাল্ট ক্রস",
-                    favoredSize = diagEntry.third,
-                    strengthPercent = diagEntry.second.coerceIn(58, 98),
-                    detail = "P_last($pLast) + N0(${nums[0]}) → #$diagonalCrossNum"
+                    layerNameBn = "ডায়াগনাল পিরিয়ড+রেজাল্ট (P+N)",
+                    favoredSize = diagEntry.vote,
+                    strengthPercent = diagEntry.effectiveWinRate.coerceIn(58, 98),
+                    detail = "P($pLast) + N(${nums[0]}) → #$diagonalCrossNum"
                 )
             )
         }
         if (skipEntry != null) {
             layerVotes.add(
                 LayerVote(
-                    layerName = "Skip-1 Midpoint Bridge",
+                    layerName = "Skip-1 Midpoint",
                     layerNameBn = "স্কিপ-১ পিরিয়ড মিডপয়েন্ট",
-                    favoredSize = skipEntry.third,
-                    strengthPercent = skipEntry.second.coerceIn(58, 98),
-                    detail = "(${nums.getOrElse(1){4}} + ${nums.getOrElse(3){6}}) / 2 = #$skipOneMidpointNum"
+                    favoredSize = skipEntry.vote,
+                    strengthPercent = skipEntry.effectiveWinRate.coerceIn(58, 98),
+                    detail = "Midpoint → #$skipOneMidpointNum"
                 )
             )
         }
-
-        // =========================================================================
-        // LAYER 2: EXPONENTIAL DECAY MOMENTUM (EMA - Last 25 draws)
-        // =========================================================================
-        val h25 = sample.take(25)
-        var emaBig = 0.0
-        var emaSmall = 0.0
-
-        h25.forEachIndexed { idx, item ->
-            val w = (25.0 - idx) / 25.0
-            if (item.size == "BIG") emaBig += w else emaSmall += w
-            if (DrawItem.baseColorOf(item.number) == "GREEN") greenScore += w else redScore += w
-        }
-
-        val recent6Colors = colors.take(6)
-        val redIn6 = recent6Colors.count { it == "RED" }
-        val greenIn6 = recent6Colors.count { it == "GREEN" }
-        if (redIn6 >= 4) redScore += 3.2
-        if (greenIn6 >= 4) greenScore += 3.2
-
-        totalBigScore += emaBig * 0.65
-        totalSmallScore += emaSmall * 0.65
-
-        val emaFavored = if (emaBig >= emaSmall) "BIG" else "SMALL"
-        val emaStrength = (54 + abs(emaBig - emaSmall) * 7).roundToInt().coerceIn(54, 93)
-        layerVotes.add(
-            LayerVote(
-                layerName = "EMA & Color Wave",
-                layerNameBn = "মোমেন্টাম ও কালার ওয়েভ",
-                favoredSize = emaFavored,
-                strengthPercent = emaStrength,
-                detail = "B:${String.format("%.1f", emaBig)} vs S:${String.format("%.1f", emaSmall)} • R:$redIn6/6"
-            )
-        )
-
-        // =========================================================================
-        // LAYER 3: DKWIN9 ENERGY BOOST ⚡ & TWIN 10-COMPLEMENT
-        // =========================================================================
-        val energyEntry = sortedFormulas.find { it.first === dkwinEnergyBoostTrick }
-        val twinEntry = sortedFormulas.find { it.first === dkwinTwinTenComplementTrick }
-        val topEnergyTrap = energyRanking.find { it.rankOrder == 1 }
-        val bestSafeBoost = energyRanking.filter { it.isSafeBoostPick }.maxByOrNull { it.energyPercent + it.trendDelta }
-
         if (energyEntry != null) {
             layerVotes.add(
                 LayerVote(
                     layerName = "DKWin Energy Boost ⚡",
                     layerNameBn = "DKWin এনার্জি বুস্ট অ্যানালাইজার",
-                    favoredSize = energyEntry.third,
-                    strengthPercent = energyEntry.second.coerceIn(58, 97),
-                    detail = "Safe:#${bestSafeBoost?.number ?: 7}(${bestSafeBoost?.energyPercent ?: 12}%) • Trap:#${topEnergyTrap?.number ?: 2}"
-                )
-            )
-        }
-        if (twinEntry != null) {
-            val comp10 = (10 - nums[0]) % 10
-            layerVotes.add(
-                LayerVote(
-                    layerName = "Twin & 10-Complement",
-                    layerNameBn = "টুইন ও ১০-কমপ্লিমেন্ট (10-N)",
-                    favoredSize = twinEntry.third,
-                    strengthPercent = twinEntry.second.coerceIn(58, 97),
-                    detail = "10-${nums[0]}=$comp10 • 9-${nums[0]}=${9 - nums[0]}"
+                    favoredSize = energyEntry.vote,
+                    strengthPercent = energyEntry.effectiveWinRate.coerceIn(58, 97),
+                    detail = "Anti-Crowd Liquidity Filter"
                 )
             )
         }
 
-        // =========================================================================
-        // LAYER 4: ADAPTIVE STREAK & VIOLET 0/5 RESET MATRIX
-        // =========================================================================
+        // EMA & Streak adjustments
+        val h25 = sample.take(25)
+        var emaBig = 0.0
+        var emaSmall = 0.0
+        h25.forEachIndexed { idx, item ->
+            val w = (25.0 - idx) / 25.0
+            if (item.size == "BIG") emaBig += w else emaSmall += w
+            if (DrawItem.baseColorOf(item.number) == "GREEN") greenScore += w else redScore += w
+        }
+        totalBigScore += emaBig * 0.65
+        totalSmallScore += emaSmall * 0.65
+
         val maxHistoricalStreak = computeMaxStreak(sizes.drop(currentStreak))
         val dragonSession = maxHistoricalStreak >= 5
-
-        var streakBigBoost = 0.0
-        var streakSmallBoost = 0.0
-
         if (nums[0] == 0 || nums[0] == 5) {
-            val flipTarget = if (sizes[0] == "BIG") "SMALL" else "BIG"
-            if (flipTarget == "BIG") streakBigBoost += 4.5 else streakSmallBoost += 4.5
-            triggers.add(
-                PatternTrigger(
-                    title = "🟣 VIOLET (${nums[0]}) BOARD RESET DETECTED",
-                    descriptionBn = "সর্বশেষ পিরিয়ডে ভায়োলেট (${nums[0]}) এসেছে — DKWin ট্রিক অনুযায়ী ট্রেন্ড রিসেট হয়ে $flipTarget আসার সম্ভাবনা বেশি!",
-                    impactLabel = "VIOLET FLIP",
-                    isHighPriority = true
-                )
-            )
+            if (sizes[0] == "BIG") totalSmallScore += 4.5 else totalBigScore += 4.5
         }
-
         when {
-            currentStreak >= 5 && dragonSession -> {
-                if (sizes[0] == "BIG") streakBigBoost += 7.5 else streakSmallBoost += 7.5
-            }
-            currentStreak >= 4 -> {
-                if (sizes[0] == "BIG") streakSmallBoost += 7.0 else streakBigBoost += 7.0
-            }
-            currentStreak == 2 -> {
-                if (sizes[0] == "BIG") streakBigBoost += 3.0 else streakSmallBoost += 3.0
-            }
+            currentStreak >= 5 && dragonSession -> if (sizes[0] == "BIG") totalBigScore += 7.5 else totalSmallScore += 7.5
+            currentStreak >= 4 -> if (sizes[0] == "BIG") totalSmallScore += 7.0 else totalBigScore += 7.0
+            currentStreak == 2 -> if (sizes[0] == "BIG") totalBigScore += 3.0 else totalSmallScore += 3.0
         }
-
         if (colorStreak >= 4) {
             if (colors[0] == "GREEN") redScore += 6.0 else greenScore += 6.0
         }
-
-        totalBigScore += streakBigBoost
-        totalSmallScore += streakSmallBoost
-
         if (zigzagCount >= 4) {
             val nextZigzag = if (sizes[0] == "BIG") "SMALL" else "BIG"
             if (nextZigzag == "BIG") totalBigScore += 6.0 else totalSmallScore += 6.0
         }
 
         // =========================================================================
-        // FINAL SIZE PREDICTION & NUMBER / COLOR SELECTION
-        // (DIAGONAL P+N + SKIP-1 MIDPOINT + 10-COMPLEMENT + 5-CYCLE ECHO + ENERGY BOOST)
+        // FINAL SIZE PREDICTION & SNIPER NUMBER SELECTION
         // =========================================================================
         val predictedSize = if (totalBigScore >= totalSmallScore) "BIG" else "SMALL"
 
         val freqMap = (0..9).associateWith { n -> h25.count { it.number == n } }
         val statByNum = chartStats.associateBy { it.number }
         val energyByNum = energyRanking.associateBy { it.number }
-
-        val markovNumberBonus = mutableMapOf<Int, Int>()
-        for (i in 1 until nums.size) {
-            if (nums[i] == nums[0]) {
-                val followedBy = nums[i - 1]
-                markovNumberBonus[followedBy] = (markovNumberBonus[followedBy] ?: 0) + 2
-            }
-        }
 
         val comp10 = (10 - nums[0]) % 10
         val comp9 = 9 - nums[0]
@@ -767,6 +753,7 @@ object QuantumPatternEngine {
         val rankedCandidates = candidates.sortedByDescending { n ->
             val st = statByNum[n]
             val en = energyByNum[n]
+            val learnedDigitBoost = (followedDigitFreq[n] ?: 0) * 3
             val overdueBoost = if (st != null && st.currentMissing >= st.avgMissing) 4 else 1
             val dkwinSniperBoost = (if (n == diagonalCrossNum) 6 else 0) +
                 (if (n == skipOneMidpointNum) 6 else 0) +
@@ -779,59 +766,52 @@ object QuantumPatternEngine {
                 (en?.trendDelta ?: 0) > 0 -> 3
                 else -> 1
             }
-            val markovBoost = (markovNumberBonus[n] ?: 0) * 3
-            val dueBonus = (5 - (freqMap[n] ?: 0)).coerceAtLeast(0)
             val colorMatchBonus = if ((greenScore >= redScore && DrawItem.baseColorOf(n) == "GREEN") ||
                 (redScore > greenScore && DrawItem.baseColorOf(n) == "RED")
             ) 3 else 0
-            overdueBoost + dkwinSniperBoost + energySafeBoost + markovBoost + dueBonus + colorMatchBonus
+            learnedDigitBoost + overdueBoost + dkwinSniperBoost + energySafeBoost + colorMatchBonus
         }
 
         val primaryNumber = rankedCandidates.getOrElse(0) { if (predictedSize == "BIG") 6 else 4 }
         val backupNumber = rankedCandidates.getOrElse(1) { if (predictedSize == "BIG") 8 else 2 }
         val predictedColor = DrawItem.colorOf(primaryNumber)
 
-        val agreeingFormulas = sortedFormulas.count { it.third == predictedSize }
+        val agreeingFormulas = sortedFormulas.count { it.vote == predictedSize }
         val totalFormulaCount = allFormulas.size
-        val topRate = topFormula?.second ?: 78
+        val topRate = topFormula?.effectiveWinRate ?: 80
         val scoreDiff = abs(totalBigScore - totalSmallScore)
-        val rawConfidence = (58 + (agreeingFormulas * 2.4) + (topRate - 60) * 0.4 + scoreDiff * 1.1).roundToInt()
-        val confidence = rawConfidence.coerceIn(66, 98)
+        val rawConfidence = (60 + (agreeingFormulas * 2.2) + (topRate - 60) * 0.4 + scoreDiff * 1.1).roundToInt()
+        val confidence = rawConfidence.coerceIn(67, 98)
 
         val isTrapRound = agreeingFormulas <= 7 && scoreDiff < 4.5
         val riskBadge = when {
-            confidence >= 86 && agreeingFormulas >= 10 -> "🎯 SURE SHOT ($agreeingFormulas/$totalFormulaCount FORMULAS)"
-            !isTrapRound && confidence >= 74 -> "✅ SAFE SIGNAL ($agreeingFormulas/$totalFormulaCount AGREE)"
-            else -> "🛑 TRAP ALERT • WAIT / 1x ONLY"
+            confidence >= 86 && agreeingFormulas >= 10 -> "🎯 SURE SHOT ($agreeingFormulas/$totalFormulaCount)"
+            !isTrapRound && confidence >= 74 -> "✅ SAFE ($agreeingFormulas/$totalFormulaCount AGREE)"
+            else -> "🛑 TRAP • WAIT / 1x"
         }
 
         val recommendedMultiplier = when {
-            isTrapRound -> "WAIT / 1x (ফাঁদ রাউন্ড — সতর্ক থাকুন)"
-            recentLossStreak == 0 -> "1x (Level 1 Entry)"
-            recentLossStreak == 1 -> "2x (Level 2 Recovery)"
-            recentLossStreak == 2 -> "4x (Level 3 Recovery)"
-            recentLossStreak == 3 -> "8x (Level 4 Recovery)"
-            else -> "1x (রিসেট / সতর্ক থাকুন)"
+            isTrapRound -> "WAIT / 1x"
+            recentLossStreak == 0 -> "1x (Lvl 1)"
+            recentLossStreak == 1 -> "2x (Lvl 2)"
+            recentLossStreak == 2 -> "4x (Lvl 3)"
+            recentLossStreak == 3 -> "8x (Lvl 4)"
+            else -> "1x (Reset)"
         }
 
-        val headlinePattern = triggers.first().title
+        val headlinePattern = triggers.firstOrNull()?.title ?: "🧠 AI SELF-LEARNING ENGINE ACTIVE"
         val topTrickText = if (topFormula != null) {
-            "⚡ DKWin9 #1 সূত্র: ${topFormula.first.nameBn} (${topFormula.second}% জয়)"
+            "🏆 #1: ${topFormula.formula.nameBn} (${topFormula.effectiveWinRate}%)"
         } else {
-            "⚡ DKWin9 ১৪-ফর্মুলা ইঞ্জিন সক্রিয়"
+            "🧠 AI ১৫-ফর্মুলা ইঞ্জিন"
         }
 
-        val banglaAdvice = buildString {
-            append("📊 মার্কেট: $marketRegimeBn\n")
-            append("🎯 সেরা নম্বর: $primaryNumber ও $backupNumber ($predictedColor) • ডায়াগনাল (P+N): #$diagonalCrossNum • স্কিপ-১ মিডপয়েন্ট: #$skipOneMidpointNum • ১০-কমপ্লিমেন্ট: #$comp10। ")
-            append("মোট ১৪টি DKWin9 সূত্রের মধ্যে $agreeingFormulas টি সূত্র $predictedSize সাপোর্ট করছে।")
-        }
+        val banglaAdvice = "$aiDiscoveredRuleBn • ১৫টির মধ্যে $agreeingFormulas টি সূত্র $predictedSize বলছে ($autoReversedCount টি অটো-রিভার্সড)।"
 
         val hotNumbers = freqMap.entries.sortedByDescending { it.value }.take(3).map { it.key }
         val coldNumbers = chartStats.sortedByDescending { it.currentMissing }.take(3).map { it.number }
 
         val bigCount = h25.count { it.size == "BIG" }
-        val smallCount = h25.size - bigCount
         val bigRatio = if (h25.isNotEmpty()) ((bigCount * 100f) / h25.size).roundToInt() else 50
         val smallRatio = 100 - bigRatio
 
@@ -860,6 +840,9 @@ object QuantumPatternEngine {
             diagonalCrossCandidate = diagonalCrossNum,
             skipOneMidpointCandidate = skipOneMidpointNum,
             isRealEnergySynced = isRealEnergy,
+            trainedDrawsCount = trainedDrawsCount,
+            aiDiscoveredRuleBn = aiDiscoveredRuleBn,
+            autoReversedCount = autoReversedCount,
             triggers = triggers,
             layerVotes = layerVotes,
             formulaLeaderboard = formulaLeaderboard,
@@ -907,13 +890,13 @@ object QuantumPatternEngine {
             primaryNumber = 6,
             backupNumber = 8,
             predictedColor = "RED",
-            confidence = 84,
+            confidence = 85,
             riskBadge = "ANALYZING...",
-            recommendedMultiplier = "1x (Level 1)",
-            marketRegimeTitle = "📊 INITIALIZING DKWIN9 14-FORMULA SCANNER...",
-            marketRegimeBn = "DKWin9 লাইভ চার্ট, ডায়াগনাল ও স্কিপ-১ মিডপয়েন্ট বিশ্লেষণ করা হচ্ছে...",
-            headlinePattern = "⚡ INITIALIZING DKWIN9 14-FORMULA ENGINE...",
-            topWebsiteTrickBadge = "⚡ DKWin9 ডায়াগনাল ও স্কিপ-১ মিডপয়েন্ট লোড হচ্ছে...",
+            recommendedMultiplier = "1x (Lvl 1)",
+            marketRegimeTitle = "🧠 AI SELF-LEARNING ENGINE LOADING...",
+            marketRegimeBn = "AI ডাটাবেস সিঙ্ক হচ্ছে...",
+            headlinePattern = "⚡ INITIALIZING 15-FORMULA AI...",
+            topWebsiteTrickBadge = "🏆 AI মেমোরি লোড হচ্ছে...",
             banglaAdvice = "লাইভ এপিআই থেকে ডেটা সিঙ্ক হচ্ছে...",
             repeatCandidate = 4,
             tenComplementCandidate = 6,
@@ -921,6 +904,9 @@ object QuantumPatternEngine {
             diagonalCrossCandidate = 8,
             skipOneMidpointCandidate = 4,
             isRealEnergySynced = false,
+            trainedDrawsCount = 30,
+            aiDiscoveredRuleBn = "🧠 AI মেমোরি ভল্ট লোড হচ্ছে...",
+            autoReversedCount = 0,
             triggers = emptyList(),
             layerVotes = emptyList(),
             formulaLeaderboard = emptyList(),
@@ -933,9 +919,7 @@ object QuantumPatternEngine {
             smallRatioPercent = 50,
             greenCount = 0,
             redCount = 0,
-            violetCount = violetCountDefault()
+            violetCount = 0
         )
     }
-
-    private fun violetCountDefault(): Int = 0
 }

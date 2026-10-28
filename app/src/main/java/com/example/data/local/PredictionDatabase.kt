@@ -30,6 +30,21 @@ data class PredictionRecordEntity(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+/**
+ * Permanent AI Training Memory Vault:
+ * Accumulates every historical draw across sessions so the Self-Learning AI Brain
+ * can train on hundreds/thousands of past draws instead of only the last 30 API items.
+ */
+@Entity(tableName = "historical_draws")
+data class HistoricalDrawEntity(
+    @PrimaryKey val id: String, // "${modeKey}_${period}"
+    val modeKey: String,
+    val period: String,
+    val number: Int,
+    val premium: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 @Dao
 interface PredictionDao {
     @Query("SELECT * FROM prediction_records WHERE modeKey = :modeKey ORDER BY targetPeriod DESC LIMIT 60")
@@ -46,9 +61,19 @@ interface PredictionDao {
 
     @Query("DELETE FROM prediction_records WHERE modeKey = :modeKey")
     suspend fun clearModeRecords(modeKey: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertHistoricalDraws(draws: List<HistoricalDrawEntity>)
+
+    @Query("SELECT * FROM historical_draws WHERE modeKey = :modeKey ORDER BY period DESC LIMIT 600")
+    suspend fun getHistoricalDrawsByMode(modeKey: String): List<HistoricalDrawEntity>
 }
 
-@Database(entities = [PredictionRecordEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [PredictionRecordEntity::class, HistoricalDrawEntity::class],
+    version = 2,
+    exportSchema = false
+)
 abstract class PredictionDatabase : RoomDatabase() {
     abstract fun predictionDao(): PredictionDao
 
