@@ -129,6 +129,94 @@ fun DeepAnalyticsTabContent(
             }
         }
 
+        // 0.5 OFFICIAL WEBSITE "CHART" MISSING & OVERDUE TABLE (0-9)
+        if (pred.chartStats.isNotEmpty()) {
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "📊 WEBSITE CHART TELEMETRY (মিসিং ও গড় বিরতি)",
+                        fontFamily = OrbitronFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = CyberCyan
+                    )
+                    Text(
+                        text = "ওয়েবসাইটের ভেতরের Chart ট্যাবের মতো কোন নম্বর কত দান ধরে আসেনি (Missing) ও গড় বিরতি (Avg Missing):",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 11.sp,
+                        color = CyberCyanDim
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CyberCyan.copy(alpha = 0.12f))
+                            .padding(vertical = 6.dp, horizontal = 8.dp)
+                    ) {
+                        Text("NO", Modifier.weight(0.8f), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan)
+                        Text("FREQ", Modifier.weight(1f), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan, textAlign = TextAlign.Center)
+                        Text("MISSING", Modifier.weight(1.1f), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan, textAlign = TextAlign.Center)
+                        Text("AVG MISS", Modifier.weight(1.1f), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan, textAlign = TextAlign.Center)
+                        Text("STATUS", Modifier.weight(1.1f), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan, textAlign = TextAlign.End)
+                    }
+
+                    pred.chartStats.forEach { st ->
+                        val isOverdue = st.currentMissing > st.avgMissing && st.currentMissing >= 6
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${st.number} (${if (st.number >= 5) "B" else "S"})",
+                                modifier = Modifier.weight(0.8f),
+                                fontFamily = OrbitronFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = if (st.number >= 5) NeonGreen else NeonRed
+                            )
+                            Text(
+                                text = "${st.frequency}x",
+                                modifier = Modifier.weight(1f),
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 12.sp,
+                                color = Color.White,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = "${st.currentMissing}",
+                                modifier = Modifier.weight(1.1f),
+                                fontFamily = OrbitronFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = if (isOverdue) NeonAmber else CyberCyanDim,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = "${st.avgMissing}",
+                                modifier = Modifier.weight(1.1f),
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 12.sp,
+                                color = TextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = if (isOverdue) "OVERDUE 🔥" else "NORMAL",
+                                modifier = Modifier.weight(1.1f),
+                                fontFamily = JetBrainsMonoFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                color = if (isOverdue) NeonAmber else CyberCyanDim,
+                                textAlign = TextAlign.End
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // 1. 5-LAYER AI CONSENSUS MATRIX
         CyberCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

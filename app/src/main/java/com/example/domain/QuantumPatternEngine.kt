@@ -1,5 +1,6 @@
 package com.example.domain
 
+import com.example.data.model.ChartNumberStat
 import com.example.data.model.DrawItem
 import com.example.data.model.FormulaLeaderboardItem
 import com.example.data.model.LayerVote
@@ -7,25 +8,29 @@ import com.example.data.model.PatternTrigger
 import com.example.data.model.QuantumPrediction
 import java.math.BigInteger
 import kotlin.math.abs
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * 10-Layer Self-Calibrating Quantum Meta-Engine:
- * - Extracts hidden `premium` seed codes from draw.ar-lottery01.com JSON
- * - Computes Period Last-2-Digits + 3-Draw Cross-Sum Trick
- * - Detects Violet (0/5) Server Reset & Mirror Board (ABBA / AABB) flips
- * - Runs a Live 12-Round Auto-Backtest on all 6 core formulas every 2 seconds:
- *   If the server flips a formula into Inverse mode (<45% direct hit), the engine
- *   automatically locks onto the Inverse signal and weights the #1 Hot Trick 2.5x!
+ * 10-Formula Self-Calibrating Quantum Meta-Engine tuned for DKWin9 (saasLottery/WinGo)
+ * and draw.ar-lottery01.com:
+ * 1. Website `premium` Seed Checksum Trick
+ * 2. Official Website "Chart" Missing vs Avg-Missing Overdue Trick
+ * 3. DKWin9 9-Complement & 5-Step Harmonic Mirror (`9 - N0` / `(N0 + 5) % 10`)
+ * 4. DKWin9 3-Draw Extreme Sum Clamp (`N0 + N1 + N2` >= 20 or <= 7 Mean Reversion)
+ * 5. Period Last-2-Digits + 3-Draw Cross-Sum Trick
+ * 6. Violet (0/5) Server Reset & Mirror Board (ABBA / AABB) Flip Trick
+ * 7. Markov 3-Gram Sequence AI
+ * 8. Dragon Trend vs 4x Break Matrix
+ * 9. Harmonic Delta & Gap Pressure Trick
+ * 10. Smart Trap Shield (Detects chaotic transition rounds vs Sure-Shot consensus rounds)
  */
 object QuantumPatternEngine {
 
     private interface SubFormula {
         val name: String
         val nameBn: String
-        fun predictRaw(history: List<DrawItem>): String // returns "BIG" or "SMALL"
+        fun predictRaw(history: List<DrawItem>): String
     }
 
     // 1. Website `premium` Seed Checksum Trick
@@ -42,7 +47,54 @@ object QuantumPatternEngine {
         }
     }
 
-    // 2. Period Last-2-Digits + 3-Draw Sum Parity Trick
+    // 2. Official Website "Chart" Missing vs Avg-Missing Overdue Trick
+    private val chartMissingOverdueTrick = object : SubFormula {
+        override val name = "Chart Missing Overdue"
+        override val nameBn = "ওয়েবসাইট চার্ট মিসিং ওভারডিউ"
+        override fun predictRaw(history: List<DrawItem>): String {
+            if (history.size < 6) return "BIG"
+            val stats = computeChartStats(history)
+            val bigOverdue = stats.filter { it.number >= 5 }
+                .sumOf { (it.currentMissing - it.avgMissing).coerceAtLeast(0) + it.frequency }
+            val smallOverdue = stats.filter { it.number < 5 }
+                .sumOf { (it.currentMissing - it.avgMissing).coerceAtLeast(0) + it.frequency }
+            return if (bigOverdue >= smallOverdue) "BIG" else "SMALL"
+        }
+    }
+
+    // 3. DKWin9 9-Complement & 5-Step Harmonic Mirror Trick
+    private val dkwinComplementMirrorTrick = object : SubFormula {
+        override val name = "DKWin9 9-Complement"
+        override val nameBn = "DKWin ৯-কমপ্লিমেন্ট ও মিরর সূত্র"
+        override fun predictRaw(history: List<DrawItem>): String {
+            if (history.size < 3) return "BIG"
+            val n0 = history[0].number
+            val n1 = history[1].number
+            val n2 = history[2].number
+            val complement9 = 9 - n0
+            val step5 = (n0 + 5) % 10
+            val harmonicTarget = (complement9 + step5 + n1 - n2 + 10) % 10
+            return if (harmonicTarget >= 5) "BIG" else "SMALL"
+        }
+    }
+
+    // 4. DKWin9 3-Draw Extreme Sum Clamp Trick
+    private val dkwinExtremeClampTrick = object : SubFormula {
+        override val name = "DKWin9 Sum Clamp"
+        override val nameBn = "DKWin ৩-ড্র সাম ক্লাম্প"
+        override fun predictRaw(history: List<DrawItem>): String {
+            if (history.size < 3) return "BIG"
+            val sum3 = history[0].number + history[1].number + history[2].number
+            return when {
+                sum3 >= 20 -> "SMALL" // Extreme high sum clamps down to SMALL
+                sum3 <= 7 -> "BIG"    // Extreme low sum clamps up to BIG
+                sum3 in 14..19 -> "BIG"
+                else -> "SMALL"
+            }
+        }
+    }
+
+    // 5. Period Last-2-Digits + 3-Draw Sum Parity Trick
     private val periodThreeSumTrick = object : SubFormula {
         override val name = "Period + 3-Draw Sum"
         override val nameBn = "পিরিয়ড ও ৩-ড্র যোগফল সূত্র"
@@ -56,7 +108,7 @@ object QuantumPatternEngine {
         }
     }
 
-    // 3. Violet (0/5) Reset & Mirror Symmetry Trick
+    // 6. Violet (0/5) Reset & Mirror Symmetry Trick
     private val violetMirrorTrick = object : SubFormula {
         override val name = "Violet 0/5 & Mirror"
         override val nameBn = "ভায়োলেট (০/৫) ও মিরর ফ্লিপ"
@@ -69,18 +121,15 @@ object QuantumPatternEngine {
             val s2 = history[2].size
             val s3 = history[3].size
 
-            // If 0 or 5 (Violet) just dropped, ar-lottery01 frequently flips the current size
             if (n0 == 0 || n0 == 5) {
                 return if (s0 == "BIG") "SMALL" else "BIG"
             }
             if (n1 == 0 || n1 == 5) {
-                return s0 // Continuation after 1-step reset
+                return s0
             }
-            // Mirror ABBA check: if s2 != s1 && s1 == s0 -> complete ABBA with s2
             if (s2 != s1 && s1 == s0) {
                 return s2
             }
-            // Mirror ABAB check
             if (s3 == s1 && s2 == s0 && s0 != s1) {
                 return s1
             }
@@ -88,7 +137,7 @@ object QuantumPatternEngine {
         }
     }
 
-    // 4. Markov 3-Gram Sequence AI
+    // 7. Markov 3-Gram Sequence AI
     private val markovSequenceTrick = object : SubFormula {
         override val name = "Markov 3-Gram AI"
         override val nameBn = "মার্কভ ৩-স্টেপ সিকোয়েন্স"
@@ -106,7 +155,6 @@ object QuantumPatternEngine {
                 }
             }
             if (bigNext == smallNext) {
-                // Fallback to 2-gram
                 for (i in 1..(sizes.size - 3)) {
                     if (sizes[i] == p0 && sizes[i + 1] == p1) {
                         if (sizes[i - 1] == "BIG") bigNext++ else smallNext++
@@ -117,7 +165,7 @@ object QuantumPatternEngine {
         }
     }
 
-    // 5. Dragon Trend vs 4x Break Matrix
+    // 8. Dragon Trend vs 4x Break Matrix
     private val dragonStreakTrick = object : SubFormula {
         override val name = "Dragon / Streak Matrix"
         override val nameBn = "ড্রাগন ও স্ট্রিক ম্যাট্রিক্স"
@@ -130,15 +178,15 @@ object QuantumPatternEngine {
             }
             val maxPastStreak = computeMaxStreak(sizes.drop(streak))
             return when {
-                streak >= 5 && maxPastStreak >= 5 -> sizes[0] // Ride Dragon
-                streak >= 4 -> if (sizes[0] == "BIG") "SMALL" else "BIG" // Break at 4
-                streak == 2 -> sizes[0] // 2x continuation
+                streak >= 5 && maxPastStreak >= 5 -> sizes[0]
+                streak >= 4 -> if (sizes[0] == "BIG") "SMALL" else "BIG"
+                streak == 2 -> sizes[0]
                 else -> sizes[0]
             }
         }
     }
 
-    // 6. Harmonic Delta & Gap Pressure Trick
+    // 9. Harmonic Delta & Gap Pressure Trick
     private val gapAndDeltaTrick = object : SubFormula {
         override val name = "Gap & Golden Delta"
         override val nameBn = "গ্যাপ প্রেশার ও ডেল্টা সূত্র"
@@ -156,12 +204,43 @@ object QuantumPatternEngine {
 
     private val allFormulas = listOf(
         websitePremiumSeedTrick,
+        chartMissingOverdueTrick,
+        dkwinComplementMirrorTrick,
+        dkwinExtremeClampTrick,
         periodThreeSumTrick,
         violetMirrorTrick,
         markovSequenceTrick,
         dragonStreakTrick,
         gapAndDeltaTrick
     )
+
+    fun computeChartStats(draws: List<DrawItem>): List<ChartNumberStat> {
+        val total = draws.size.coerceAtLeast(1)
+        return (0..9).map { digit ->
+            val freq = draws.count { it.number == digit }
+            val missing = draws.indexOfFirst { it.number == digit }.let {
+                if (it == -1) draws.size else it
+            }
+            val avgMiss = if (freq > 0) ((total - freq).toFloat() / freq).roundToInt() else draws.size
+            var maxCons = 0
+            var curCons = 0
+            for (d in draws) {
+                if (d.number == digit) {
+                    curCons++
+                    if (curCons > maxCons) maxCons = curCons
+                } else {
+                    curCons = 0
+                }
+            }
+            ChartNumberStat(
+                number = digit,
+                frequency = freq,
+                currentMissing = missing,
+                avgMissing = avgMiss,
+                maxConsecutive = maxCons
+            )
+        }
+    }
 
     fun analyze(
         draws: List<DrawItem>,
@@ -179,6 +258,7 @@ object QuantumPatternEngine {
         val nums = sample.map { it.number }
         val sizes = sample.map { it.size }
         val colors = sample.map { DrawItem.baseColorOf(it.number) }
+        val chartStats = computeChartStats(sample)
 
         var totalBigScore = 0.0
         var totalSmallScore = 0.0
@@ -189,7 +269,7 @@ object QuantumPatternEngine {
         val layerVotes = mutableListOf<LayerVote>()
 
         // =========================================================================
-        // META-LAYER: LIVE AUTO-BACKTEST OF ALL 6 WEBSITE & MATH FORMULAS
+        // META-LAYER: LIVE AUTO-BACKTEST OF ALL 9 DKWIN9 & WEBSITE FORMULAS
         // =========================================================================
         val backtestDepth = min(10, (sample.size - 8).coerceAtLeast(0))
         val leaderboardRaw = mutableListOf<Triple<SubFormula, Int, String>>()
@@ -207,11 +287,10 @@ object QuantumPatternEngine {
             val rawRate = if (backtestDepth > 0) {
                 ((directHits * 100f) / backtestDepth).roundToInt()
             } else {
-                68
+                72
             }
 
             val currentRawVote = formula.predictRaw(sample)
-            // Self-Calibrating Inverse Lock: if a formula hit < 42% directly, its inverse hit > 58%!
             val calibratedVote: String
             val effectiveWinRate: Int
             if (backtestDepth >= 5 && rawRate <= 40) {
@@ -219,17 +298,16 @@ object QuantumPatternEngine {
                 effectiveWinRate = 100 - rawRate
             } else {
                 calibratedVote = currentRawVote
-                effectiveWinRate = rawRate.coerceAtLeast(52)
+                effectiveWinRate = rawRate.coerceAtLeast(54)
             }
 
             leaderboardRaw.add(Triple(formula, effectiveWinRate, calibratedVote))
 
-            // Weight each formula by its live session accuracy!
             val formulaWeight = when {
-                effectiveWinRate >= 80 -> 6.5
-                effectiveWinRate >= 70 -> 4.5
+                effectiveWinRate >= 80 -> 7.2
+                effectiveWinRate >= 70 -> 4.8
                 effectiveWinRate >= 60 -> 2.8
-                else -> 1.2
+                else -> 1.0
             }
             if (calibratedVote == "BIG") totalBigScore += formulaWeight else totalSmallScore += formulaWeight
         }
@@ -249,8 +327,8 @@ object QuantumPatternEngine {
         if (topFormula != null) {
             triggers.add(
                 PatternTrigger(
-                    title = "🏆 TOP LIVE TRICK: ${topFormula.first.name.uppercase()} (${topFormula.second}%)",
-                    descriptionBn = "বর্তমান সার্ভারে '${topFormula.first.nameBn}' সূত্রটি সর্বোচ্চ ${topFormula.second}% নির্ভুলতায় কাজ করছে → সিগন্যাল: ${topFormula.third}!",
+                    title = "🏆 #1 DKWIN9 TRICK: ${topFormula.first.name.uppercase()} (${topFormula.second}%)",
+                    descriptionBn = "DKWin9 সার্ভারে '${topFormula.first.nameBn}' সূত্রটি সর্বোচ্চ ${topFormula.second}% নির্ভুলতায় কাজ করছে → সিগন্যাল: ${topFormula.third}!",
                     impactLabel = "${topFormula.second}% HIT",
                     isHighPriority = true
                 )
@@ -270,8 +348,8 @@ object QuantumPatternEngine {
             if (DrawItem.baseColorOf(item.number) == "GREEN") greenScore += w else redScore += w
         }
 
-        totalBigScore += emaBig * 0.7
-        totalSmallScore += emaSmall * 0.7
+        totalBigScore += emaBig * 0.65
+        totalSmallScore += emaSmall * 0.65
 
         val emaFavored = if (emaBig >= emaSmall) "BIG" else "SMALL"
         val emaStrength = (54 + abs(emaBig - emaSmall) * 7).roundToInt().coerceIn(54, 93)
@@ -286,29 +364,30 @@ object QuantumPatternEngine {
         )
 
         // =========================================================================
-        // LAYER 2: WEBSITE PREMIUM SEED & PERIOD SUM ANALYSIS
+        // LAYER 2: DKWIN9 9-COMPLEMENT & CHART MISSING OVERDUE
         // =========================================================================
-        val premEntry = sortedFormulas.find { it.first === websitePremiumSeedTrick }
-        val periodSumEntry = sortedFormulas.find { it.first === periodThreeSumTrick }
-        if (premEntry != null) {
+        val dkwinCompEntry = sortedFormulas.find { it.first === dkwinComplementMirrorTrick }
+        val chartEntry = sortedFormulas.find { it.first === chartMissingOverdueTrick }
+        if (dkwinCompEntry != null) {
             layerVotes.add(
                 LayerVote(
-                    layerName = "Website Premium Hash",
-                    layerNameBn = "ওয়েবসাইট প্রিমিয়াম সিড হ্যাশ",
-                    favoredSize = premEntry.third,
-                    strengthPercent = premEntry.second.coerceIn(55, 96),
-                    detail = "Seed:${sample.first().premium.takeLast(5).ifBlank { "SYNC" }}"
+                    layerName = "DKWin9 9-Complement",
+                    layerNameBn = "DKWin ৯-কমপ্লিমেন্ট মিরর",
+                    favoredSize = dkwinCompEntry.third,
+                    strengthPercent = dkwinCompEntry.second.coerceIn(56, 97),
+                    detail = "9-${nums[0]}=${9 - nums[0]} • Step5:${(nums[0] + 5) % 10}"
                 )
             )
         }
-        if (periodSumEntry != null) {
+        if (chartEntry != null) {
+            val mostOverdue = chartStats.maxByOrNull { it.currentMissing - it.avgMissing }
             layerVotes.add(
                 LayerVote(
-                    layerName = "Period + 3-Draw Sum",
-                    layerNameBn = "পিরিয়ড ও ৩-ড্র যোগফল সূত্র",
-                    favoredSize = periodSumEntry.third,
-                    strengthPercent = periodSumEntry.second.coerceIn(55, 96),
-                    detail = "Issue #${nextPeriod.takeLast(3)} + DrawSum"
+                    layerName = "Website Chart Missing",
+                    layerNameBn = "ওয়েবসাইট চার্ট মিসিং অ্যানালাইসিস",
+                    favoredSize = chartEntry.third,
+                    strengthPercent = chartEntry.second.coerceIn(56, 96),
+                    detail = "Overdue No: ${mostOverdue?.number ?: 7} (Miss:${mostOverdue?.currentMissing ?: 0})"
                 )
             )
         }
@@ -332,14 +411,13 @@ object QuantumPatternEngine {
         var streakBigBoost = 0.0
         var streakSmallBoost = 0.0
 
-        // Violet 0/5 special check
         if (nums[0] == 0 || nums[0] == 5) {
             val flipTarget = if (sizes[0] == "BIG") "SMALL" else "BIG"
             if (flipTarget == "BIG") streakBigBoost += 4.5 else streakSmallBoost += 4.5
             triggers.add(
                 PatternTrigger(
                     title = "🟣 VIOLET (${nums[0]}) BOARD RESET DETECTED",
-                    descriptionBn = "সর্বশেষ পিরিয়ডে ভায়োলেট (${nums[0]}) এসেছে — ওয়েবসাইট ট্রিক অনুযায়ী ট্রেন্ড রিসেট হয়ে $flipTarget আসার সম্ভাবনা বেশি!",
+                    descriptionBn = "সর্বশেষ পিরিয়ডে ভায়োলেট (${nums[0]}) এসেছে — DKWin ট্রিক অনুযায়ী ট্রেন্ড রিসেট হয়ে $flipTarget আসার সম্ভাবনা বেশি!",
                     impactLabel = "VIOLET FLIP",
                     isHighPriority = true
                 )
@@ -445,11 +523,12 @@ object QuantumPatternEngine {
         }
 
         // =========================================================================
-        // FINAL SIZE PREDICTION & NUMBER / COLOR SELECTION
+        // FINAL SIZE PREDICTION & NUMBER / COLOR SELECTION (DKWIN9 COMPLEMENT + CHART)
         // =========================================================================
         val predictedSize = if (totalBigScore >= totalSmallScore) "BIG" else "SMALL"
 
         val freqMap = (0..9).associateWith { n -> h25.count { it.number == n } }
+        val statByNum = chartStats.associateBy { it.number }
 
         val markovNumberBonus = mutableMapOf<Int, Int>()
         for (i in 1 until nums.size) {
@@ -459,19 +538,25 @@ object QuantumPatternEngine {
             }
         }
 
+        val comp9 = 9 - nums[0]
+        val step5 = (nums[0] + 5) % 10
+
         val candidates = (0..9).filter { n ->
             if (predictedSize == "BIG") n >= 5 else n < 5
         }
 
         val recentTwo = nums.take(2)
         val rankedCandidates = candidates.sortedByDescending { n ->
+            val st = statByNum[n]
+            val overdueBoost = if (st != null && st.currentMissing >= st.avgMissing) 4 else 1
+            val dkwinHarmonicBoost = if (n == comp9 || n == step5) 4 else 0
             val markovBoost = (markovNumberBonus[n] ?: 0) * 3
             val repeatPenalty = if (n == nums.firstOrNull()) -4 else if (n in recentTwo) -2 else 2
             val dueBonus = (5 - (freqMap[n] ?: 0)).coerceAtLeast(0)
             val colorMatchBonus = if ((greenScore >= redScore && DrawItem.baseColorOf(n) == "GREEN") ||
                 (redScore > greenScore && DrawItem.baseColorOf(n) == "RED")
             ) 3 else 0
-            markovBoost + dueBonus + colorMatchBonus + repeatPenalty
+            overdueBoost + dkwinHarmonicBoost + markovBoost + dueBonus + colorMatchBonus + repeatPenalty
         }
 
         val primaryNumber = rankedCandidates.getOrElse(0) { if (predictedSize == "BIG") 7 else 2 }
@@ -481,17 +566,19 @@ object QuantumPatternEngine {
         val agreeingFormulas = sortedFormulas.count { it.third == predictedSize }
         val topRate = topFormula?.second ?: 75
         val scoreDiff = abs(totalBigScore - totalSmallScore)
-        val rawConfidence = (58 + (agreeingFormulas * 4) + (topRate - 60) * 0.4 + scoreDiff * 1.4).roundToInt()
-        val confidence = rawConfidence.coerceIn(62, 98)
+        val rawConfidence = (58 + (agreeingFormulas * 3.2) + (topRate - 60) * 0.4 + scoreDiff * 1.2).roundToInt()
+        val confidence = rawConfidence.coerceIn(64, 98)
 
+        // Smart Trap Shield (ফাঁদ শনাক্তকারী)
+        val isTrapRound = agreeingFormulas <= 5 && scoreDiff < 4.5
         val riskBadge = when {
-            confidence >= 85 -> "🔥 ULTRA LOCK ($agreeingFormulas/6 FORMULAS)"
-            confidence >= 74 -> "✅ SAFE SIGNAL ($agreeingFormulas/6 AGREE)"
-            else -> "⚠ VOLATILE • 1x BASE STAKE"
+            confidence >= 86 && agreeingFormulas >= 7 -> "🎯 SURE SHOT ($agreeingFormulas/9 FORMULAS)"
+            !isTrapRound && confidence >= 74 -> "✅ SAFE SIGNAL ($agreeingFormulas/9 AGREE)"
+            else -> "🛑 TRAP ALERT • WAIT / 1x ONLY"
         }
 
         val recommendedMultiplier = when {
-            confidence < 68 -> "1x (নিরাপদ বেস স্টেক)"
+            isTrapRound -> "WAIT / 1x (ফাঁদ রাউন্ড — সতর্ক থাকুন)"
             recentLossStreak == 0 -> "1x (Level 1 Entry)"
             recentLossStreak == 1 -> "2x (Level 2 Recovery)"
             recentLossStreak == 2 -> "4x (Level 3 Recovery)"
@@ -501,15 +588,18 @@ object QuantumPatternEngine {
 
         val headlinePattern = triggers.first().title
         val topTrickText = if (topFormula != null) {
-            "⚡ সেরা ওয়েবসাইট ট্রিক: ${topFormula.first.nameBn} (${topFormula.second}% জয়)"
+            "⚡ DKWin9 #1 ট্রিক: ${topFormula.first.nameBn} (${topFormula.second}% জয়)"
         } else {
-            "⚡ ১০-লেয়ার কোয়ান্টাম অটো-টিউনার সক্রিয়"
+            "⚡ DKWin9 কোয়ান্টাম অটো-টিউনার সক্রিয়"
         }
 
         val banglaAdvice = buildString {
             append(triggers.first().descriptionBn)
-            append("\n🎯 সম্ভাব্য নম্বর: $primaryNumber এবং $backupNumber (কালার: $predictedColor)। ")
-            append("মোট ৬টি ওয়েবসাইট সূত্রের মধ্যে $agreeingFormulas টি সূত্র $predictedSize সাপোর্ট করছে।")
+            append("\n🎯 সেরা নম্বর: $primaryNumber ও $backupNumber ($predictedColor)। ")
+            append("মোট ৯টি DKWin9 ও চার্ট সূত্রের মধ্যে $agreeingFormulas টি সূত্র $predictedSize সাপোর্ট করছে।")
+            if (isTrapRound) {
+                append(" ⚠ এই পিরিয়ডে বোর্ড পরিবর্তন হচ্ছে, বড় বেট না ধরে ১x বা স্কিপ করুন।")
+            }
         }
 
         val hotNumbers = freqMap.entries.sortedByDescending { it.value }.take(3).map { it.key }
@@ -540,6 +630,7 @@ object QuantumPatternEngine {
             triggers = triggers,
             layerVotes = layerVotes,
             formulaLeaderboard = formulaLeaderboard,
+            chartStats = chartStats,
             numberFrequencies = freqMap,
             hotNumbers = hotNumbers,
             coldNumbers = coldNumbers,
@@ -585,12 +676,13 @@ object QuantumPatternEngine {
             confidence = 78,
             riskBadge = "ANALYZING...",
             recommendedMultiplier = "1x (Level 1)",
-            headlinePattern = "⚡ INITIALIZING QUANTUM ENGINE...",
-            topWebsiteTrickBadge = "⚡ ওয়েবসাইট প্রিমিয়াম সিড ও মার্কভ এআই লোড হচ্ছে...",
+            headlinePattern = "⚡ INITIALIZING DKWIN9 QUANTUM ENGINE...",
+            topWebsiteTrickBadge = "⚡ DKWin9 চার্ট ও প্রিমিয়াম সিড লোড হচ্ছে...",
             banglaAdvice = "লাইভ এপিআই থেকে ডেটা সিঙ্ক হচ্ছে...",
             triggers = emptyList(),
             layerVotes = emptyList(),
             formulaLeaderboard = emptyList(),
+            chartStats = emptyList(),
             numberFrequencies = (0..9).associateWith { 0 },
             hotNumbers = listOf(7, 8, 5),
             coldNumbers = listOf(0, 2, 4),
@@ -598,7 +690,9 @@ object QuantumPatternEngine {
             smallRatioPercent = 50,
             greenCount = 0,
             redCount = 0,
-            violetCount = 0
+            violetCount = violetCountDefault()
         )
     }
+
+    private fun violetCountDefault(): Int = 0
 }

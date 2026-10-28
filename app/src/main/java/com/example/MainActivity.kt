@@ -175,6 +175,8 @@ fun WinGoPatternEngineApp() {
 
                         EngineTab.WEB_ENGINE -> {
                             InteractiveWebEngineTab(
+                                uiState = uiState,
+                                onSelectMode = viewModel::selectMode,
                                 onJsonReceived = viewModel::onWebViewJsonReceived
                             )
                         }

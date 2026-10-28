@@ -86,6 +86,18 @@ data class FormulaLeaderboardItem(
     val isTopTrick: Boolean
 )
 
+/**
+ * Matches the logged-in WinGo Website "Chart" tab telemetry:
+ * Frequency, Missing (current draws since last seen), Avg Missing, and Max Consecutive
+ */
+data class ChartNumberStat(
+    val number: Int,
+    val frequency: Int,
+    val currentMissing: Int,
+    val avgMissing: Int,
+    val maxConsecutive: Int
+)
+
 data class QuantumPrediction(
     val currentPeriod: String,
     val nextPeriod: String,
@@ -102,6 +114,7 @@ data class QuantumPrediction(
     val triggers: List<PatternTrigger>,
     val layerVotes: List<LayerVote>,
     val formulaLeaderboard: List<FormulaLeaderboardItem>,
+    val chartStats: List<ChartNumberStat>,
     val numberFrequencies: Map<Int, Int>,
     val hotNumbers: List<Int>,
     val coldNumbers: List<Int>,

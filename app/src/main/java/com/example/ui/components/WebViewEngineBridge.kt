@@ -7,19 +7,46 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.model.GameMode
+import com.example.ui.WinGoUiState
+import com.example.ui.theme.CyberCyan
+import com.example.ui.theme.CyberCyanDim
+import com.example.ui.theme.JetBrainsMonoFamily
+import com.example.ui.theme.NeonAmber
+import com.example.ui.theme.NeonBlue
+import com.example.ui.theme.NeonGreen
+import com.example.ui.theme.NeonRed
+import com.example.ui.theme.OrbitronFamily
 
 private class JsApiBridge(
     private val onJsonPayload: (String) -> Unit
@@ -32,11 +59,6 @@ private class JsApiBridge(
     }
 }
 
-/**
- * Uses Android's native Chromium WebView network stack (genuine browser TLS/JA3 fingerprint)
- * to fetch draw.ar-lottery01.com JSON and bridge it directly into our Kotlin ViewModel,
- * bypassing Cloudflare TLS blocks that can affect standard Java HTTP clients.
- */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun ChromiumWebApiBridge(
@@ -107,64 +129,320 @@ fun ChromiumWebApiBridge(
         }
     )
 
-    LaunchedEffect(syncTriggerCount) {
-        // Triggered when user taps Sync button
-    }
+    LaunchedEffect(syncTriggerCount) {}
 }
 
 /**
- * Interactive WebView rendering the user's Matrix HTML engine enhanced with Website Premium Seed
- * and Period Sum tricks so the user can view the HTML engine directly inside the app as well.
+ * Split-View Live HUD + Game / Pattern Browser:
+ * Shows the Quantum Signal HUD Bar pinned at the top while allowing the user to view either
+ * the built-in HTML Pattern Engine or load any external game website URL directly underneath.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun InteractiveWebEngineTab(
+    uiState: WinGoUiState,
+    onSelectMode: (GameMode) -> Unit,
     onJsonReceived: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val bridge = remember(onJsonReceived) { JsApiBridge(onJsonReceived) }
+    var urlInput by remember {
+        mutableStateOf("https://dkwin9.com/#/saasLottery/WinGo?gameCode=WinGo_30S&lottery=WinGo")
+    }
+    var activeExternalUrl by remember {
+        mutableStateOf<String?>("https://dkwin9.com/#/saasLottery/WinGo?gameCode=WinGo_30S&lottery=WinGo")
+    }
+    val pred = uiState.prediction
+    val isBig = pred.predictedSize == "BIG"
+    val sigColor = if (isBig) NeonGreen else NeonRed
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        CyberCard(modifier = Modifier.fillMaxWidth()) {
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(740.dp)
-                    .clip(RoundedCornerShape(14.dp)),
-                factory = { ctx ->
-                    try {
-                        WebView(ctx).apply {
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // PINNED LIVE SIGNAL HUD OVERLAY BAR
+        CyberCard(
+            borderColor = sigColor.copy(alpha = 0.6f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "⚡ DKWIN9 LIVE HUD • ${uiState.selectedMode.label} (${uiState.remainingSeconds}s)",
+                            fontFamily = OrbitronFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = CyberCyan
+                        )
+                        Text(
+                            text = "NEXT: #${pred.nextPeriod.takeLast(7)} • ${pred.riskBadge}",
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 11.sp,
+                            color = CyberCyanDim
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = pred.predictedSize,
+                            fontFamily = OrbitronFamily,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 22.sp,
+                            color = sigColor
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(NeonBlue.copy(alpha = 0.2f))
+                                .border(1.dp, NeonBlue, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "${pred.primaryNumber}/${pred.backupNumber}",
+                                fontFamily = OrbitronFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = NeonBlue
                             )
-                            settings.javaScriptEnabled = true
-                            settings.domStorageEnabled = true
-                            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                            addJavascriptInterface(bridge, "AndroidBridge")
-                            webViewClient = WebViewClient()
-                            webChromeClient = WebChromeClient()
-                            loadDataWithBaseURL(
-                                "https://draw.ar-lottery01.com/",
-                                ENHANCED_WINGO_HTML,
-                                "text/html",
-                                "UTF-8",
-                                null
-                            )
-                        }
-                    } catch (t: Throwable) {
-                        android.widget.TextView(ctx).apply {
-                            text = "WebView unavailable on this device. Use SIGNAL Tab."
-                            setTextColor(android.graphics.Color.CYAN)
                         }
                     }
                 }
-            )
+
+                // Quick Mode Switcher inside HUD
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    GameMode.entries.forEach { m ->
+                        val sel = m == uiState.selectedMode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (sel) CyberCyan else Color(0xFF081521))
+                                .clickable { onSelectMode(m) }
+                                .padding(vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = m.label,
+                                fontFamily = OrbitronFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                color = if (sel) Color.Black else CyberCyan
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = "${pred.topWebsiteTrickBadge} • CONF: ${pred.confidence}%",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 11.sp,
+                    color = NeonAmber
+                )
+            }
+        }
+
+        // URL SWITCHER BAR (DKWin9 Live Game Site vs Matrix Web Engine)
+        CyberCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (activeExternalUrl != null) NeonGreen else Color(0xFF081521))
+                            .clickable {
+                                activeExternalUrl = "https://dkwin9.com/#/saasLottery/WinGo?gameCode=WinGo_30S&lottery=WinGo"
+                            }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "DKWIN9 GAME + HUD",
+                            fontFamily = OrbitronFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (activeExternalUrl != null) Color.Black else NeonGreen
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (activeExternalUrl == null) CyberCyan else Color(0xFF081521))
+                            .clickable { activeExternalUrl = null }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "MATRIX WEB ENGINE",
+                            fontFamily = OrbitronFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (activeExternalUrl == null) Color.Black else CyberCyan
+                        )
+                    }
+                }
+
+                if (activeExternalUrl != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = urlInput,
+                            onValueChange = { urlInput = it },
+                            label = { Text("DKWin9 / Game URL", fontSize = 11.sp) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberCyan,
+                                unfocusedBorderColor = CyberCyan.copy(alpha = 0.35f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(CyberCyan)
+                                .clickable {
+                                    val clean = if (urlInput.startsWith("http")) urlInput else "https://$urlInput"
+                                    activeExternalUrl = clean
+                                }
+                                .padding(horizontal = 14.dp, vertical = 14.dp)
+                        ) {
+                            Text(
+                                text = "GO",
+                                fontFamily = OrbitronFamily,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                color = Color.Black
+                            )
+                        }
+                    }
+                }
+
+                AndroidView(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(680.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    factory = { ctx ->
+                        try {
+                            WebView(ctx).apply {
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                                settings.javaScriptEnabled = true
+                                settings.domStorageEnabled = true
+                                settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                addJavascriptInterface(bridge, "AndroidBridge")
+                                webViewClient = object : WebViewClient() {
+                                    override fun onPageFinished(view: WebView?, url: String?) {
+                                        super.onPageFinished(view, url)
+                                        // Inject XHR & fetch interceptor so DKWin9's live game draws
+                                        // are piped directly into our Quantum Engine!
+                                        view?.evaluateJavascript(
+                                            """
+                                            (function() {
+                                                if (window.__dkwinHooked) return;
+                                                window.__dkwinHooked = true;
+                                                const origFetch = window.fetch;
+                                                window.fetch = async function(...args) {
+                                                    const res = await origFetch.apply(this, args);
+                                                    try {
+                                                        const clone = res.clone();
+                                                        clone.text().then(t => {
+                                                            if (t && (t.indexOf('issueNumber') !== -1 || t.indexOf('"list"') !== -1) && window.AndroidBridge) {
+                                                                window.AndroidBridge.postJson(t);
+                                                            }
+                                                        }).catch(()=>{});
+                                                    } catch(e) {}
+                                                    return res;
+                                                };
+                                                const origOpen = XMLHttpRequest.prototype.open;
+                                                XMLHttpRequest.prototype.open = function() {
+                                                    this.addEventListener('load', function() {
+                                                        try {
+                                                            const t = this.responseText;
+                                                            if (t && (t.indexOf('issueNumber') !== -1 || t.indexOf('"list"') !== -1) && window.AndroidBridge) {
+                                                                window.AndroidBridge.postJson(t);
+                                                            }
+                                                        } catch(e) {}
+                                                    });
+                                                    return origOpen.apply(this, arguments);
+                                                };
+                                            })();
+                                            """.trimIndent(),
+                                            null
+                                        )
+                                    }
+                                }
+                                webChromeClient = WebChromeClient()
+                                val initialTarget = activeExternalUrl
+                                if (initialTarget != null) {
+                                    tag = initialTarget
+                                    loadUrl(initialTarget)
+                                } else {
+                                    tag = "INTERNAL_HTML"
+                                    loadDataWithBaseURL(
+                                        "https://draw.ar-lottery01.com/",
+                                        ENHANCED_WINGO_HTML,
+                                        "text/html",
+                                        "UTF-8",
+                                        null
+                                    )
+                                }
+                            }
+                        } catch (t: Throwable) {
+                            android.widget.TextView(ctx).apply {
+                                text = "WebView unavailable on this device. Use SIGNAL Tab."
+                                setTextColor(android.graphics.Color.CYAN)
+                            }
+                        }
+                    },
+                    update = { view ->
+                        if (view is WebView) {
+                            val target = activeExternalUrl
+                            if (target != null && view.tag != target) {
+                                view.tag = target
+                                view.loadUrl(target)
+                            } else if (target == null && view.tag != "INTERNAL_HTML") {
+                                view.tag = "INTERNAL_HTML"
+                                view.loadDataWithBaseURL(
+                                    "https://draw.ar-lottery01.com/",
+                                    ENHANCED_WINGO_HTML,
+                                    "text/html",
+                                    "UTF-8",
+                                    null
+                                )
+                            }
+                        }
+                    }
+                )
+            }
         }
     }
 }
 
-private const val ENHANCED_WINGO_HTML = """
+private val ENHANCED_WINGO_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -254,18 +532,15 @@ function analyze(H){
   let big=0, small=0;
   const sizes=H.map(x=>sizeOf(x.number));
   H.slice(0,25).forEach((h,i)=>{const w=(25-i)/25; if(sizeOf(h.number)==='BIG')big+=w; else small+=w;});
-  // Website Premium Seed Trick
   const prem=String(H[0].premium||'');
   let premSum=0; for(let c of prem){if(c>='0'&&c<='9')premSum+=Number(c);}
   const pTail=Number(String(H[0].period).slice(-2))||0;
   const seedPred=((premSum+pTail+H[0].number*3)%10)>=5?'BIG':'SMALL';
   if(seedPred==='BIG')big+=4.5; else small+=4.5;
-  // Period + 3-Draw Sum Trick
   if(H.length>=3){
     const dSum=H[0].number+H[1].number+H[2].number+(pTail+1);
     if(dSum%2===0)big+=3.5; else small+=3.5;
   }
-  // Streak & Violet Reset
   let st=1; for(let i=1;i<sizes.length;i++){if(sizes[i]===sizes[0])st++;else break;}
   if(H[0].number===0||H[0].number===5){if(sizes[0]==='BIG')small+=5;else big+=5;}
   else if(st>=4){if(sizes[0]==='BIG')small+=7;else big+=7;}
@@ -274,7 +549,7 @@ function analyze(H){
   const conf=Math.min(96,Math.max(64,Math.round(66+Math.abs(big-small)*3.2)));
   const n1=pred==='BIG'?((H[0].number+3)%5+5):((H[0].number+2)%5);
   const n2=pred==='BIG'?((n1+2)%5+5):((n1+2)%5);
-  return {prediction:pred,confidence:conf,number:n1+' / '+n2,color:colorOf(n1),pattern:'⚡ WEBSITE SEED ('+seedPred+') + MARKOV AI ACTIVE'};
+  return {prediction:pred,confidence:conf,number:n1+' / '+n2,color:colorOf(n1),pattern:'⚡ WEBSITE SEED ('+seedPred+') + CHART MISSING AI'};
 }
 async function poll(){
   try{
@@ -313,4 +588,4 @@ poll();setInterval(poll,2000);
 </script>
 </body>
 </html>
-"""
+""".trimIndent()
