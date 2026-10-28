@@ -1,0 +1,6 @@
+{
+  "name": "WinGo Engine",
+  "description": "Quantum Multi-Layer WinGo Pattern Engine with live 30S/1M/3M/5M API telemetry, Markov sequence analysis, Hot/Cold frequency charts, and persistent Win/Loss tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">WinGo Engine</string>
+    <string name="header_title">WINGO QUANTUM ENGINE</string>
+    <string name="header_subtitle">8-LAYER AI &amp; MARKOV PATTERN ANALYZER</string>
+    <string name="tab_live_signal">LIVE SIGNAL</string>
+    <string name="tab_analytics">DEEP ANALYTICS</string>
+    <string name="tab_calculator">FUND PLANNER</string>
+    <string name="current_period">CURRENT ISSUE</string>
+    <string name="next_period">TARGET ISSUE</string>
+    <string name="next_signal_label">QUANTUM NEXT SIGNAL</string>
+    <string name="confidence_label">SIGNAL CONFIDENCE</string>
+    <string name="live_pattern_title">ACTIVE PATTERN MATRIX</string>
+    <string name="stat_win">WIN</string>
+    <string name="stat_loss">LOSS</string>
+    <string name="stat_win_rate">WIN RATE</string>
+    <string name="stat_streak">STREAK</string>
+    <string name="live_history_title">LIVE DRAW TELEMETRY</string>
+    <string name="signal_log_title">VERIFIED SIGNAL LOG</string>
+    <string name="reset_stats">RESET STATS</string>
+    <string name="refresh_now">SYNC API</string>
+</resources>
