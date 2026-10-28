@@ -76,6 +76,7 @@ fun ChromiumWebApiBridge(
         <body>
         <script>
         var currentUrl = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json?ts=";
+        var stateUrl = "https://draw.ar-lottery01.com/WinGo/WinGo_30S.json?ts=";
         function setModeUrl(u) {
             currentUrl = u;
             fetchNow();
@@ -86,6 +87,13 @@ fun ChromiumWebApiBridge(
                 const text = await res.text();
                 if (text && text.indexOf("list") !== -1 && window.AndroidBridge) {
                     window.AndroidBridge.postJson(text);
+                }
+            } catch (e) {}
+            try {
+                const sRes = await fetch(stateUrl + Date.now());
+                const sText = await sRes.text();
+                if (sText && window.AndroidBridge) {
+                    window.AndroidBridge.postJson(sText);
                 }
             } catch (e) {}
         }
@@ -506,31 +514,63 @@ fun InteractiveWebEngineTab(
  */
 private val DKWIN9_DEEP_INTERCEPTOR_JS = """
 (function() {
-    if (window.__dkwinHookedV2) return;
-    window.__dkwinHookedV2 = true;
+    if (window.__dkwinHookedV3) return;
+    window.__dkwinHookedV3 = true;
+
+    function shouldForwardApi(url, bodyText) {
+        if (!bodyText) return false;
+        const u = String(url || '');
+        if (u.indexOf('Energy/GetPanel') !== -1 ||
+            u.indexOf('Lottery/GetBalance') !== -1 ||
+            u.indexOf('Lottery/GetWinLossResult') !== -1 ||
+            u.indexOf('Lottery/WinGoBet') !== -1 ||
+            u.indexOf('WinGo_30S') !== -1 ||
+            u.indexOf('GetHistoryIssuePage') !== -1) {
+            return true;
+        }
+        return (bodyText.indexOf('issueNumber') !== -1 ||
+                bodyText.indexOf('"list"') !== -1 ||
+                bodyText.indexOf('panelList') !== -1 ||
+                bodyText.indexOf('winAmount') !== -1);
+    }
+
+    function forwardTagged(url, bodyText) {
+        try {
+            if (!window.AndroidBridge || !shouldForwardApi(url, bodyText)) return;
+            const u = String(url || '');
+            if (u.indexOf('Energy/GetPanel') !== -1 ||
+                u.indexOf('Lottery/GetBalance') !== -1 ||
+                u.indexOf('Lottery/GetWinLossResult') !== -1) {
+                try {
+                    const parsed = JSON.parse(bodyText);
+                    parsed.__endpointUrl = u;
+                    window.AndroidBridge.postJson(JSON.stringify(parsed));
+                    return;
+                } catch (e) {}
+            }
+            window.AndroidBridge.postJson(bodyText);
+        } catch (e) {}
+    }
 
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
+        const reqUrl = (args[0] && args[0].url) ? args[0].url : String(args[0] || '');
         const res = await origFetch.apply(this, args);
         try {
             const clone = res.clone();
             clone.text().then(function(t) {
-                if (t && (t.indexOf('issueNumber') !== -1 || t.indexOf('"list"') !== -1) && window.AndroidBridge) {
-                    window.AndroidBridge.postJson(t);
-                }
+                forwardTagged(reqUrl, t);
             }).catch(function(){});
         } catch(e) {}
         return res;
     };
 
     const origOpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function() {
+    XMLHttpRequest.prototype.open = function(method, url) {
+        this.__reqUrl = url || '';
         this.addEventListener('load', function() {
             try {
-                const t = this.responseText;
-                if (t && (t.indexOf('issueNumber') !== -1 || t.indexOf('"list"') !== -1) && window.AndroidBridge) {
-                    window.AndroidBridge.postJson(t);
-                }
+                forwardTagged(this.__reqUrl, this.responseText);
             } catch(e) {}
         });
         return origOpen.apply(this, arguments);

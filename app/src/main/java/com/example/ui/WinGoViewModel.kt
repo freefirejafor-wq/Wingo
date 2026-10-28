@@ -7,6 +7,7 @@ import com.example.data.local.PredictionRecordEntity
 import com.example.data.model.DrawItem
 import com.example.data.model.GameMode
 import com.example.data.model.QuantumPrediction
+import com.example.data.remote.WinGoApiClient
 import com.example.data.repository.WinGoRepository
 import com.example.domain.QuantumPatternEngine
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import kotlin.math.roundToInt
 
 enum class EngineTab {
@@ -52,6 +52,9 @@ data class WinGoUiState(
     val matrixAnimationEnabled: Boolean = true,
     val winNotificationEnabled: Boolean = true,
     val latestWinRecord: PredictionRecordEntity? = null,
+    val isEnergyPanelHooked: Boolean = false,
+    val liveWalletBalance: String? = null,
+    val lastServerWinLossPopup: String? = null,
     val totalCapitalInput: String = "1000",
     val selectedStepCount: Int = 5,
     val multiplierScale: Float = 2.0f
@@ -140,19 +143,30 @@ class WinGoViewModel(
 
     fun onWebViewJsonReceived(json: String) {
         viewModelScope.launch {
+            var energyUpdated = false
             try {
-                if (json.contains("energyPercents")) {
-                    val obj = JSONObject(json)
-                    val arr = obj.optJSONArray("energyPercents")
-                    val deltas = obj.optJSONArray("energyDeltas")
-                    if (arr != null && arr.length() == 10) {
-                        val map = mutableMapOf<Int, Pair<Int, Int>>()
-                        for (i in 0..9) {
-                            val pct = arr.optInt(i, 10).coerceIn(1, 50)
-                            val dlt = deltas?.optInt(i, 1) ?: 1
-                            map[i] = pct to dlt
-                        }
-                        latestRealEnergyMap = map
+                // 1. Check /api/Energy/GetPanel?gameCode=WinGo_30S or DOM energyPercents
+                if (json.contains("Energy/GetPanel") || json.contains("energyPercents") || json.contains("panelList")) {
+                    val parsedEnergy = WinGoApiClient.parseEnergyPanelJson(json)
+                    if (parsedEnergy != null) {
+                        latestRealEnergyMap = parsedEnergy
+                        energyUpdated = true
+                        _uiState.update { it.copy(isEnergyPanelHooked = true) }
+                    }
+                }
+                // 2. Check /api/Lottery/GetBalance
+                if (json.contains("Lottery/GetBalance") || json.contains("\"balance\"") || json.contains("\"amount\"")) {
+                    val bal = WinGoApiClient.parseWalletBalanceJson(json)
+                    if (bal != null) {
+                        val formatted = String.format(java.util.Locale.US, "৳%.2f", bal)
+                        _uiState.update { it.copy(liveWalletBalance = formatted) }
+                    }
+                }
+                // 3. Check /api/Lottery/GetWinLossResult
+                if (json.contains("Lottery/GetWinLossResult") || json.contains("winAmount")) {
+                    val popupResult = WinGoApiClient.parseWinLossResultJson(json)
+                    if (popupResult != null) {
+                        _uiState.update { it.copy(lastServerWinLossPopup = popupResult) }
                     }
                 }
             } catch (_: Throwable) {}
@@ -169,11 +183,11 @@ class WinGoViewModel(
                     isLive = true,
                     statusMessage = "LIVE 30S API (VAULT: ${accumulated.size})"
                 )
-            } else if (latestRealEnergyMap != null && _uiState.value.draws.isNotEmpty()) {
+            } else if (energyUpdated && _uiState.value.draws.isNotEmpty()) {
                 applyDrawsToEngine(
                     draws = _uiState.value.draws,
                     isLive = _uiState.value.isLiveApiConnected,
-                    statusMessage = "LIVE DKWIN9 DB ENERGY SYNCED"
+                    statusMessage = "GETPANEL ENERGY 30S HOOKED"
                 )
             }
         }

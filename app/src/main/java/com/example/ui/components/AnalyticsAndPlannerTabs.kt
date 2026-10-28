@@ -86,7 +86,7 @@ fun DeepAnalyticsTabContent(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "👑 15-FORMULA AI MATRIX",
+                                text = "👑 20-FORMULA AI MATRIX",
                                 fontFamily = OrbitronFamily,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 12.sp,

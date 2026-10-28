@@ -147,4 +147,118 @@ class WinGoApiClient {
             DrawItem(period = period, number = number, premium = premium)
         }
     }
+
+    companion object {
+        const val WINGO_30S_STATE_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S.json?ts="
+
+        /**
+         * Parses https://api.ar-lottery01.com/api/Energy/GetPanel?gameCode=WinGo_30S
+         * Extracts 0-9 ball energy percentages and rank/delta into Map<Int, Pair<Int, Int>>.
+         */
+        fun parseEnergyPanelJson(jsonStr: String): Map<Int, Pair<Int, Int>>? {
+            if (jsonStr.isBlank()) return null
+            return try {
+                val root = JSONObject(jsonStr)
+                // Direct custom array injected by DOM / interceptor
+                val customArr = root.optJSONArray("energyPercents")
+                if (customArr != null && customArr.length() == 10) {
+                    val deltas = root.optJSONArray("energyDeltas")
+                    val map = mutableMapOf<Int, Pair<Int, Int>>()
+                    for (i in 0..9) {
+                        val pct = customArr.optInt(i, 10).coerceIn(1, 60)
+                        val dlt = deltas?.optInt(i, 1) ?: 1
+                        map[i] = pct to dlt
+                    }
+                    return map
+                }
+
+                // Official /api/Energy/GetPanel JSON structure
+                val dataNode = root.opt("data")
+                val candidateArray: JSONArray? = when (dataNode) {
+                    is JSONArray -> dataNode
+                    is JSONObject -> {
+                        dataNode.optJSONArray("list")
+                            ?: dataNode.optJSONArray("panelList")
+                            ?: dataNode.optJSONArray("energyList")
+                            ?: dataNode.optJSONArray("items")
+                            ?: dataNode.optJSONArray("numbers")
+                    }
+                    else -> root.optJSONArray("panelList") ?: root.optJSONArray("energyList")
+                }
+
+                val map = mutableMapOf<Int, Pair<Int, Int>>()
+                if (candidateArray != null && candidateArray.length() > 0) {
+                    for (i in 0 until candidateArray.length()) {
+                        val item = candidateArray.opt(i)
+                        if (item is JSONObject) {
+                            val num = item.optInt("number", item.optInt("num", item.optInt("ball", i)))
+                            val rawRate = item.optDouble(
+                                "rate",
+                                item.optDouble(
+                                    "percent",
+                                    item.optDouble("energy", item.optDouble("ratio", -1.0))
+                                )
+                            )
+                            val pct = when {
+                                rawRate in 0.01..0.99 -> (rawRate * 100.0).toInt()
+                                rawRate >= 1.0 -> rawRate.toInt()
+                                else -> item.optInt("count", 10)
+                            }.coerceIn(1, 65)
+                            val delta = item.optInt("trend", item.optInt("rank", item.optInt("medal", 1)))
+                            if (num in 0..9) {
+                                map[num] = pct to delta
+                            }
+                        } else if (item is Number && i in 0..9) {
+                            map[i] = item.toInt().coerceIn(1, 65) to 1
+                        }
+                    }
+                }
+                if (map.size >= 5) map else null
+            } catch (_: Throwable) {
+                null
+            }
+        }
+
+        /**
+         * Parses https://api.ar-lottery01.com/api/Lottery/GetBalance
+         */
+        fun parseWalletBalanceJson(jsonStr: String): Double? {
+            if (jsonStr.isBlank()) return null
+            return try {
+                val root = JSONObject(jsonStr)
+                val dataObj = root.optJSONObject("data")
+                val amount = when {
+                    dataObj != null && dataObj.has("amount") -> dataObj.optDouble("amount", -1.0)
+                    dataObj != null && dataObj.has("balance") -> dataObj.optDouble("balance", -1.0)
+                    root.has("amount") -> root.optDouble("amount", -1.0)
+                    root.has("balance") -> root.optDouble("balance", -1.0)
+                    else -> -1.0
+                }
+                if (amount >= 0.0) amount else null
+            } catch (_: Throwable) {
+                null
+            }
+        }
+
+        /**
+         * Parses https://api.ar-lottery01.com/api/Lottery/GetWinLossResult?issueNumber=...
+         */
+        fun parseWinLossResultJson(jsonStr: String): String? {
+            if (jsonStr.isBlank()) return null
+            return try {
+                val root = JSONObject(jsonStr)
+                val dataObj = root.optJSONObject("data") ?: return null
+                val issue = dataObj.optString("issueNumber").takeLast(4)
+                val winAmount = dataObj.optDouble("winAmount", dataObj.optDouble("awardAmount", -1.0))
+                val state = dataObj.optInt("state", dataObj.optInt("status", -1))
+                when {
+                    winAmount > 0.0 || state == 1 -> "🏆 WON +${winAmount.toInt()} (#$issue)"
+                    state == 2 || winAmount == 0.0 -> "ROUND #$issue SETTLED"
+                    else -> null
+                }
+            } catch (_: Throwable) {
+                null
+            }
+        }
+    }
 }

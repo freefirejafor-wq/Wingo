@@ -117,7 +117,12 @@ fun LiveSignalTabContent(
         VipSniperFormulaBentoStrip(prediction = prediction)
 
         // 4. UNIFIED AI VAULT + 0-9 ENERGY BOOST & CROWD METER DOCK
-        VipAiVaultAndEnergyDock(prediction = prediction)
+        VipAiVaultAndEnergyDock(
+            prediction = prediction,
+            isEnergyPanelHooked = uiState.isEnergyPanelHooked,
+            liveWalletBalance = uiState.liveWalletBalance,
+            lastServerWinLossPopup = uiState.lastServerWinLossPopup
+        )
 
         // 5. VIP SCOREBOARD + LAST 8 3D BALLS + 1-ROW VERIFIED LOG PILLS
         VipScoreboardAndHistoryDock(
@@ -662,7 +667,12 @@ private fun VipSniperFormulaBentoStrip(prediction: QuantumPrediction) {
 }
 
 @Composable
-private fun VipAiVaultAndEnergyDock(prediction: QuantumPrediction) {
+private fun VipAiVaultAndEnergyDock(
+    prediction: QuantumPrediction,
+    isEnergyPanelHooked: Boolean = false,
+    liveWalletBalance: String? = null,
+    lastServerWinLossPopup: String? = null
+) {
     val bigCrowdPct = prediction.energyRanking.filter { it.number >= 5 }.sumOf { it.energyPercent }
     val smallCrowdPct = (100 - bigCrowdPct).coerceIn(1, 99)
 
@@ -672,7 +682,7 @@ private fun VipAiVaultAndEnergyDock(prediction: QuantumPrediction) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            // Top Row: Self-Training AI Brain Telemetry
+            // Top Row: Self-Training AI Brain + AR-Lottery01 API Hook Telemetry
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -703,9 +713,42 @@ private fun VipAiVaultAndEnergyDock(prediction: QuantumPrediction) {
                             color = NeonGreen
                         )
                     }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(
+                                if (isEnergyPanelHooked) NeonGreen.copy(alpha = 0.18f)
+                                else VipGold.copy(alpha = 0.14f)
+                            )
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = if (isEnergyPanelHooked) "🟢 GETPANEL LIVE" else "⚡ 30S PANEL SYNC",
+                            fontFamily = JetBrainsMonoFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 8.sp,
+                            color = if (isEnergyPanelHooked) NeonGreen else VipGold
+                        )
+                    }
                 }
 
-                if (prediction.autoReversedCount > 0) {
+                if (liveWalletBalance != null) {
+                    Text(
+                        text = "💰 $liveWalletBalance",
+                        fontFamily = OrbitronFamily,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 9.sp,
+                        color = VipGold
+                    )
+                } else if (lastServerWinLossPopup != null) {
+                    Text(
+                        text = lastServerWinLossPopup,
+                        fontFamily = JetBrainsMonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 8.sp,
+                        color = NeonGreen
+                    )
+                } else if (prediction.autoReversedCount > 0) {
                     Text(
                         text = "🔄 ${prediction.autoReversedCount} AUTO-REVERSED",
                         fontFamily = JetBrainsMonoFamily,

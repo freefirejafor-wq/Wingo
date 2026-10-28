@@ -13,7 +13,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * 15-Formula Self-Training & Auto-Pattern Discovery AI Engine:
+ * 20-Formula Self-Training & Auto-Pattern Discovery AI Engine:
  * - Accumulates up to 600+ historical draws in SQLite (HistoricalDrawEntity)
  * - Learns Digit-to-Digit & N-Gram Transition rules automatically from accumulated draws
  * - Reinforcement Learning: Rewards winning formulas and Auto-Reverses (🔄) formulas trapped by the server
@@ -310,6 +310,89 @@ object QuantumPatternEngine {
         }
     }
 
+    // 16. AR-Lottery Medal-2 & Medal-3 Sniper (Skips Medal-1 Crowd Trap from GetPanel)
+    private val arLotteryMedal23SniperTrick = object : SubFormula {
+        override val name = "GetPanel Medal-2/3 Sniper"
+        override val nameBn = "সার্ভার মেডেল ২/৩ স্নাইপার (GetPanel)"
+        override fun predictRaw(history: List<DrawItem>): String {
+            if (history.size < 5) return "BIG"
+            val slice = history.take(30)
+            val stats = computeChartStats(slice)
+            val energyList = computeEnergyRanking(slice, stats, null)
+            val medal2 = energyList.find { it.rankOrder == 2 }?.number ?: 6
+            val medal3 = energyList.find { it.rankOrder == 3 }?.number ?: 3
+            val combined = medal2 + medal3
+            return when {
+                medal2 >= 5 && medal3 >= 5 -> "BIG"
+                medal2 < 5 && medal3 < 5 -> "SMALL"
+                else -> if (combined >= 9) "BIG" else "SMALL"
+            }
+        }
+    }
+
+    // 17. WinGo 30S Minute-Boundary Pair Sync (:00s Even vs :30s Odd Period Reset)
+    private val minuteBoundaryPairSyncTrick = object : SubFormula {
+        override val name = "30S Minute-Pair Sync"
+        override val nameBn = "৩০-সেকেন্ড মিনিট পেয়ার সিঙ্ক"
+        override fun predictRaw(history: List<DrawItem>): String {
+            if (history.size < 5) return "BIG"
+            val nextP = incrementPeriod(history[0].period)
+            val nextLastDigit = nextP.lastOrNull()?.digitToIntOrNull() ?: 0
+            val isSecondHalfOfMinute = nextLastDigit % 2 == 1
+            return if (isSecondHalfOfMinute) {
+                // Odd period (:30s): check if previous minute pair flipped or held
+                val prevPairFlipped = history[1].size != history[2].size
+                if (prevPairFlipped) {
+                    if (history[0].size == "BIG") "SMALL" else "BIG"
+                } else {
+                    history[0].size
+                }
+            } else {
+                // Even period (:00s new minute): harmonic carry from previous two minute-openers
+                val newMinTarget = (history[0].number + history[1].number + history[3].number) % 10
+                if (newMinTarget >= 5) "BIG" else "SMALL"
+            }
+        }
+    }
+
+    // 18. Cross-Subtract Diagonal Bridge (|N[0] - N[2]| + P_last) % 10
+    private val crossSubtractDiagonalTrick = object : SubFormula {
+        override val name = "Cross-Subtract Bridge"
+        override val nameBn = "ক্রস-বিয়োগ ডায়াগনাল সূত্র (|N0-N2|+P)"
+        override fun predictRaw(history: List<DrawItem>): String {
+            if (history.size < 3) return "BIG"
+            val pLast = history[0].period.lastOrNull()?.digitToIntOrNull() ?: 0
+            val diff = abs(history[0].number - history[2].number)
+            val target = (diff + pLast) % 10
+            return if (target >= 5) "BIG" else "SMALL"
+        }
+    }
+
+    // 19. Lagged Fibonacci PRNG Step ((N[0] + N[1] + |N[2] - N[4]|) % 10)
+    private val laggedFibonacciPrngTrick = object : SubFormula {
+        override val name = "Lagged Fibonacci PRNG"
+        override val nameBn = "ফিবোনাচ্চি সার্ভার PRNG স্টেপ"
+        override fun predictRaw(history: List<DrawItem>): String {
+            if (history.size < 5) return "BIG"
+            val fib = (history[0].number + history[1].number + abs(history[2].number - history[4].number)) % 10
+            return if (fib >= 5) "BIG" else "SMALL"
+        }
+    }
+
+    // 20. AR-Lottery Issue Serial 2880 Checksum (Extracts 4-digit daily 30S round serial)
+    private val issueSerialHashTrick = object : SubFormula {
+        override val name = "Issue Serial 2880 Hash"
+        override val nameBn = "পিরিয়ড সিরিয়াল ২৮৮০ হ্যাশ সূত্র"
+        override fun predictRaw(history: List<DrawItem>): String {
+            val latest = history.firstOrNull() ?: return "BIG"
+            val serial4 = latest.period.takeLast(4)
+            val serialSum = serial4.sumOf { it.digitToIntOrNull() ?: 0 }
+            val serialLast = serial4.lastOrNull()?.digitToIntOrNull() ?: 0
+            val hash = (serialSum + serialLast * 3 + latest.number * 2) % 10
+            return if (hash >= 5) "BIG" else "SMALL"
+        }
+    }
+
     private val allFormulas = listOf(
         selfTrainedNeuralMemoryAi,
         dkwinDiagonalCrossTrick,
@@ -325,7 +408,12 @@ object QuantumPatternEngine {
         violetMirrorTrick,
         markovSequenceTrick,
         dragonStreakTrick,
-        gapAndDeltaTrick
+        gapAndDeltaTrick,
+        arLotteryMedal23SniperTrick,
+        minuteBoundaryPairSyncTrick,
+        crossSubtractDiagonalTrick,
+        laggedFibonacciPrngTrick,
+        issueSerialHashTrick
     )
 
     fun computeChartStats(draws: List<DrawItem>): List<ChartNumberStat> {
@@ -745,6 +833,10 @@ object QuantumPatternEngine {
         val comp9 = 9 - nums[0]
         val step5 = (nums[0] + 5) % 10
         val fiveCycleEcho = sample.getOrNull(4)?.number ?: comp10
+        val crossSubtractNum = if (nums.size >= 3) (abs(nums[0] - nums[2]) + pLast) % 10 else comp10
+        val fibPrngNum = if (nums.size >= 5) (nums[0] + nums[1] + abs(nums[2] - nums[4])) % 10 else step5
+        val medal2Num = energyRanking.find { it.rankOrder == 2 }?.number ?: comp10
+        val medal3Num = energyRanking.find { it.rankOrder == 3 }?.number ?: step5
 
         val candidates = (0..9).filter { n ->
             if (predictedSize == "BIG") n >= 5 else n < 5
@@ -758,6 +850,9 @@ object QuantumPatternEngine {
             val dkwinSniperBoost = (if (n == diagonalCrossNum) 6 else 0) +
                 (if (n == skipOneMidpointNum) 6 else 0) +
                 (if (n == comp10) 5 else 0) +
+                (if (n == crossSubtractNum) 5 else 0) +
+                (if (n == fibPrngNum) 4 else 0) +
+                (if (n == medal2Num || n == medal3Num) 5 else 0) +
                 (if (n == fiveCycleEcho) 4 else 0) +
                 (if (n == comp9 || n == step5) 3 else 0)
             val energySafeBoost = when {
@@ -780,12 +875,12 @@ object QuantumPatternEngine {
         val totalFormulaCount = allFormulas.size
         val topRate = topFormula?.effectiveWinRate ?: 80
         val scoreDiff = abs(totalBigScore - totalSmallScore)
-        val rawConfidence = (60 + (agreeingFormulas * 2.2) + (topRate - 60) * 0.4 + scoreDiff * 1.1).roundToInt()
+        val rawConfidence = (60 + (agreeingFormulas * 1.75) + (topRate - 60) * 0.4 + scoreDiff * 1.0).roundToInt()
         val confidence = rawConfidence.coerceIn(67, 98)
 
-        val isTrapRound = agreeingFormulas <= 7 && scoreDiff < 4.5
+        val isTrapRound = agreeingFormulas <= 9 && scoreDiff < 4.5
         val riskBadge = when {
-            confidence >= 86 && agreeingFormulas >= 10 -> "🎯 SURE SHOT ($agreeingFormulas/$totalFormulaCount)"
+            confidence >= 86 && agreeingFormulas >= 13 -> "🎯 SURE SHOT ($agreeingFormulas/$totalFormulaCount)"
             !isTrapRound && confidence >= 74 -> "✅ SAFE ($agreeingFormulas/$totalFormulaCount AGREE)"
             else -> "🛑 TRAP • WAIT / 1x"
         }
@@ -799,14 +894,14 @@ object QuantumPatternEngine {
             else -> "1x (Reset)"
         }
 
-        val headlinePattern = triggers.firstOrNull()?.title ?: "🧠 AI SELF-LEARNING ENGINE ACTIVE"
+        val headlinePattern = triggers.firstOrNull()?.title ?: "🧠 AI 20-FORMULA ENGINE ACTIVE"
         val topTrickText = if (topFormula != null) {
             "🏆 #1: ${topFormula.formula.nameBn} (${topFormula.effectiveWinRate}%)"
         } else {
-            "🧠 AI ১৫-ফর্মুলা ইঞ্জিন"
+            "🧠 AI ২০-ফর্মুলা ইঞ্জিন"
         }
 
-        val banglaAdvice = "$aiDiscoveredRuleBn • ১৫টির মধ্যে $agreeingFormulas টি সূত্র $predictedSize বলছে ($autoReversedCount টি অটো-রিভার্সড)।"
+        val banglaAdvice = "$aiDiscoveredRuleBn • ২০টির মধ্যে $agreeingFormulas টি সূত্র $predictedSize বলছে ($autoReversedCount টি অটো-রিভার্সড)।"
 
         val hotNumbers = freqMap.entries.sortedByDescending { it.value }.take(3).map { it.key }
         val coldNumbers = chartStats.sortedByDescending { it.currentMissing }.take(3).map { it.number }
