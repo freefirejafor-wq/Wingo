@@ -98,6 +98,20 @@ data class ChartNumberStat(
     val maxConsecutive: Int
 )
 
+/**
+ * Matches the logged-in DKWin9 "Energy Boost (WinGo 30sec)" modal telemetry:
+ * Energy Ranking % (e.g., 17%, 12%, 11%), rank trend delta (e.g., ↑2, ↑6, ↓1),
+ * Top 3 Medal rank (1 = +100%, 2 = +80%, 3 = +50%), and whether our engine marks it as a Safe Pick.
+ */
+data class EnergyBallStat(
+    val number: Int,
+    val energyPercent: Int,
+    val trendDelta: Int,
+    val rankOrder: Int,
+    val isSafeBoostPick: Boolean,
+    val isCrowdTrap: Boolean
+)
+
 data class QuantumPrediction(
     val currentPeriod: String,
     val nextPeriod: String,
@@ -108,13 +122,19 @@ data class QuantumPrediction(
     val confidence: Int,
     val riskBadge: String,
     val recommendedMultiplier: String,
+    val marketRegimeTitle: String,
+    val marketRegimeBn: String,
     val headlinePattern: String,
     val topWebsiteTrickBadge: String,
     val banglaAdvice: String,
+    val repeatCandidate: Int,
+    val tenComplementCandidate: Int,
+    val fiveCycleEchoCandidate: Int,
     val triggers: List<PatternTrigger>,
     val layerVotes: List<LayerVote>,
     val formulaLeaderboard: List<FormulaLeaderboardItem>,
     val chartStats: List<ChartNumberStat>,
+    val energyRanking: List<EnergyBallStat>,
     val numberFrequencies: Map<Int, Int>,
     val hotNumbers: List<Int>,
     val coldNumbers: List<Int>,

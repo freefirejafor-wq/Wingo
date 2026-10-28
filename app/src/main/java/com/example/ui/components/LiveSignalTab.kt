@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,11 +30,13 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.PredictionRecordEntity
 import com.example.data.model.DrawItem
+import com.example.data.model.EnergyBallStat
 import com.example.data.model.GameMode
 import com.example.data.model.QuantumPrediction
 import com.example.ui.WinGoUiState
@@ -62,6 +64,7 @@ import com.example.ui.theme.NeonRed
 import com.example.ui.theme.NeonViolet
 import com.example.ui.theme.OrbitronFamily
 import com.example.ui.theme.TextSecondary
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -116,7 +119,7 @@ fun LiveSignalTabContent(
                     onForceSync = onForceSync
                 )
 
-                // 3. Quantum Signal Hero Display
+                // 3. Quantum Signal Hero Display (with Market Regime + 10-Comp / 5-Echo chips)
                 QuantumSignalHero(prediction = prediction)
 
                 // 4. Confidence Bar
@@ -135,6 +138,14 @@ fun LiveSignalTabContent(
                     onResetStats = onResetStats
                 )
             }
+        }
+
+        // NEW: DKWIN9 ENERGY BOOST & HOT3 / COLD3 / 10-COMPLEMENT RANKING CARD
+        if (prediction.energyRanking.isNotEmpty()) {
+            DkwinEnergyBoostCard(
+                prediction = prediction,
+                modeLabel = uiState.selectedMode.label
+            )
         }
 
         // VERIFIED SIGNAL ACCURACY LOG CARD
@@ -351,10 +362,32 @@ private fun QuantumSignalHero(prediction: QuantumPrediction) {
             }
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Market Regime Pill
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(NeonAmber.copy(alpha = 0.12f))
+                .border(1.dp, NeonAmber.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = prediction.marketRegimeTitle,
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                color = NeonAmber,
+                textAlign = TextAlign.Center
+            )
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "NEXT QUANTUM SIGNAL",
+            text = "NEXT DKWIN9 12-FORMULA SIGNAL",
             fontFamily = JetBrainsMonoFamily,
             fontSize = 12.sp,
             color = CyberCyanDim
@@ -459,6 +492,423 @@ private fun QuantumSignalHero(prediction: QuantumPrediction) {
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // DKWin9 Special Formula Quick Strip: 10-Complement | 5-Cycle Echo | Repeat
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            SpecialFormulaMiniChip(
+                label = "10-COMP (10-N)",
+                value = "#${prediction.tenComplementCandidate}",
+                tint = NeonGreen,
+                modifier = Modifier.weight(1f)
+            )
+            SpecialFormulaMiniChip(
+                label = "5-CYCLE ECHO",
+                value = "#${prediction.fiveCycleEchoCandidate}",
+                tint = CyberCyan,
+                modifier = Modifier.weight(1f)
+            )
+            SpecialFormulaMiniChip(
+                label = "LAST REPEAT",
+                value = "#${prediction.repeatCandidate}",
+                tint = NeonAmber,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpecialFormulaMiniChip(
+    label: String,
+    value: String,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(tint.copy(alpha = 0.08f))
+            .border(1.dp, tint.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+            .padding(vertical = 6.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = label,
+            fontFamily = JetBrainsMonoFamily,
+            fontSize = 9.sp,
+            color = TextSecondary
+        )
+        Text(
+            text = value,
+            fontFamily = OrbitronFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            color = tint
+        )
+    }
+}
+
+/**
+ * Reconstructs DKWin9's logged-in `⚡ Energy Boost` modal (from the user's screenshot)
+ * with Top 1 🥇 (+100%), Top 2 🥈 (+80%), Top 3 🥉 (+50%), Energy %, ↑/↓ Rank Delta,
+ * and interactive filter pills (`⚡ Safe Boost`, `🔥 Hot 3`, `❄️ Cold 3`, `🔄 10-Comp`).
+ */
+@Composable
+private fun DkwinEnergyBoostCard(
+    prediction: QuantumPrediction,
+    modeLabel: String
+) {
+    var selectedFilter by remember { mutableStateOf("SAFE") } // SAFE, HOT, COLD, COMP
+
+    val highlightedNumbers: Set<Int> = when (selectedFilter) {
+        "HOT" -> prediction.hotNumbers.toSet()
+        "COLD" -> prediction.coldNumbers.toSet()
+        "COMP" -> setOf(
+            prediction.tenComplementCandidate,
+            prediction.fiveCycleEchoCandidate,
+            prediction.repeatCandidate
+        )
+        else -> setOf(prediction.primaryNumber, prediction.backupNumber) +
+            prediction.energyRanking.filter { it.isSafeBoostPick }.map { it.number }.take(2)
+    }
+
+    CyberCard(
+        borderColor = NeonAmber.copy(alpha = 0.55f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Header matching DKWin9 Energy Boost bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = NeonAmber,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "⚡ DKWIN9 ENERGY BOOST • $modeLabel",
+                            fontFamily = OrbitronFamily,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp,
+                            color = NeonAmber
+                        )
+                        Text(
+                            text = "Top 3 Bonus Ranking + Anti-Crowd Trap Scanner",
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 10.sp,
+                            color = CyberCyanDim
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(NeonGreen.copy(alpha = 0.15f))
+                        .border(1.dp, NeonGreen.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "PICK: #${prediction.primaryNumber} / #${prediction.backupNumber}",
+                        fontFamily = OrbitronFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = NeonGreen
+                    )
+                }
+            }
+
+            // 4 Interactive Filter Buttons (matching Energy Boost modal: Safe Boost, Repeat/10-Comp, Hot 3, Cold 3)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                EnergyFilterButton(
+                    label = "⚡ Safe Boost",
+                    active = selectedFilter == "SAFE",
+                    activeColor = NeonGreen,
+                    onClick = { selectedFilter = "SAFE" },
+                    modifier = Modifier.weight(1f)
+                )
+                EnergyFilterButton(
+                    label = "🔄 10-Comp (${prediction.tenComplementCandidate})",
+                    active = selectedFilter == "COMP",
+                    activeColor = CyberCyan,
+                    onClick = { selectedFilter = "COMP" },
+                    modifier = Modifier.weight(1f)
+                )
+                EnergyFilterButton(
+                    label = "🔥 Hot 3",
+                    active = selectedFilter == "HOT",
+                    activeColor = NeonAmber,
+                    onClick = { selectedFilter = "HOT" },
+                    modifier = Modifier.weight(0.9f)
+                )
+                EnergyFilterButton(
+                    label = "❄️ Cold 3",
+                    active = selectedFilter == "COLD",
+                    activeColor = NeonBlue,
+                    onClick = { selectedFilter = "COLD" },
+                    modifier = Modifier.weight(0.9f)
+                )
+            }
+
+            // Row 1: Balls 0..4 (SMALL)
+            val row1 = prediction.energyRanking.filter { it.number in 0..4 }.sortedBy { it.number }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                row1.forEach { stat ->
+                    EnergyBallItem(
+                        stat = stat,
+                        isHighlighted = stat.number in highlightedNumbers
+                    )
+                }
+            }
+
+            // Row 2: Balls 5..9 (BIG)
+            val row2 = prediction.energyRanking.filter { it.number in 5..9 }.sortedBy { it.number }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                row2.forEach { stat ->
+                    EnergyBallItem(
+                        stat = stat,
+                        isHighlighted = stat.number in highlightedNumbers
+                    )
+                }
+            }
+
+            // Bonus Legend + Crowd Trap Warning
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                BonusPill(text = "🥇 #1 +100% (Crowd Risk)", tint = NeonRed, modifier = Modifier.weight(1f))
+                BonusPill(text = "🥈 #2 +80% (Safe Value)", tint = NeonGreen, modifier = Modifier.weight(1f))
+                BonusPill(text = "🥉 #3 +50% (Safe Value)", tint = CyberCyan, modifier = Modifier.weight(1f))
+            }
+
+            // Crowd Bet Load (SMALL 0-4 vs BIG 5-9 Energy %) -> House Liquidity Direction
+            val smallCrowdPct = row1.sumOf { it.energyPercent }
+            val bigCrowdPct = row2.sumOf { it.energyPercent }
+            val lighterSide = if (bigCrowdPct <= smallCrowdPct) "BIG (কম ভিড় • হাউস সেফ)" else "SMALL (কম ভিড় • হাউস সেফ)"
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF040D18))
+                    .border(1.dp, CyberCyan.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "👥 CROWD BET (SMALL 0-4): $smallCrowdPct%",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = NeonRed
+                    )
+                    Text(
+                        text = "CROWD BET (BIG 5-9): $bigCrowdPct%",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = NeonGreen
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(smallCrowdPct.coerceAtLeast(10).toFloat())
+                            .fillMaxHeight()
+                            .background(NeonRed)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(bigCrowdPct.coerceAtLeast(10).toFloat())
+                            .fillMaxHeight()
+                            .background(NeonGreen)
+                    )
+                }
+                Text(
+                    text = "🏦 হাউস লিকুইডিটি টার্গেট: $lighterSide | #1 নম্বর এড়িয়ে #2/#3 বা সিগন্যাল নম্বর ধরুন",
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    color = NeonAmber
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnergyFilterButton(
+    label: String,
+    active: Boolean,
+    activeColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (active) activeColor.copy(alpha = 0.22f) else Color(0xFF061322))
+            .border(
+                width = 1.dp,
+                color = if (active) activeColor else CyberCyan.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .clickable { onClick() }
+            .padding(vertical = 7.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontFamily = JetBrainsMonoFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 10.sp,
+            color = if (active) activeColor else CyberCyanDim,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun EnergyBallItem(
+    stat: EnergyBallStat,
+    isHighlighted: Boolean
+) {
+    val ballColor = when {
+        stat.number == 0 || stat.number == 5 -> NeonViolet
+        stat.number % 2 == 0 -> NeonRed
+        else -> NeonGreen
+    }
+
+    val medalBadge = when (stat.rankOrder) {
+        1 -> "🥇"
+        2 -> "🥈"
+        3 -> "🥉"
+        else -> null
+    }
+
+    val deltaPrefix = if (stat.trendDelta >= 0) "↑${stat.trendDelta}" else "↓${abs(stat.trendDelta)}"
+    val deltaColor = if (stat.trendDelta >= 0) NeonGreen else NeonRed
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                if (isHighlighted) NeonAmber.copy(alpha = 0.14f) else Color.Transparent
+            )
+            .border(
+                width = if (isHighlighted) 1.5.dp else 0.dp,
+                color = if (isHighlighted) NeonAmber else Color.Transparent,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 4.dp, vertical = 4.dp)
+    ) {
+        Box(contentAlignment = Alignment.TopEnd) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(ballColor.copy(alpha = 0.22f))
+                    .border(
+                        width = if (isHighlighted) 2.dp else 1.5.dp,
+                        color = if (isHighlighted) NeonAmber else ballColor,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stat.number.toString(),
+                    fontFamily = OrbitronFamily,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
+                    color = Color.White
+                )
+            }
+            if (medalBadge != null) {
+                Text(
+                    text = medalBadge,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(3.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = deltaPrefix,
+                fontFamily = JetBrainsMonoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 9.sp,
+                color = deltaColor
+            )
+            Text(
+                text = "${stat.energyPercent}%",
+                fontFamily = OrbitronFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp,
+                color = if (stat.rankOrder <= 3) NeonAmber else Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun BonusPill(
+    text: String,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(tint.copy(alpha = 0.1f))
+            .border(1.dp, tint.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+            .padding(vertical = 4.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontFamily = JetBrainsMonoFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 9.sp,
+            color = tint,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -536,7 +986,7 @@ private fun PatternMatrixBox(prediction: QuantumPrediction) {
                 modifier = Modifier.size(18.dp)
             )
             Text(
-                text = "LIVE QUANTUM PATTERN & বাংলা গাইড",
+                text = "LIVE DKWIN9 MARKET & বাংলা গাইড",
                 fontFamily = OrbitronFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,

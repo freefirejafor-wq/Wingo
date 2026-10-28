@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import android.annotation.SuppressLint
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -133,9 +133,10 @@ fun ChromiumWebApiBridge(
 }
 
 /**
- * Split-View Live HUD + Game / Pattern Browser:
- * Shows the Quantum Signal HUD Bar pinned at the top while allowing the user to view either
- * the built-in HTML Pattern Engine or load any external game website URL directly underneath.
+ * Split-View Live HUD + DKWin9 Game Browser:
+ * Shows the 12-Formula Quantum Signal HUD Bar pinned at the top while embedding
+ * https://dkwin9.com/#/saasLottery/WinGo?gameCode=WinGo_30S&lottery=WinGo directly underneath,
+ * complete with XHR/Fetch/DOM live result scraping and 1-Tap Login & WinGo 30S navigation.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -146,12 +147,17 @@ fun InteractiveWebEngineTab(
     modifier: Modifier = Modifier
 ) {
     val bridge = remember(onJsonReceived) { JsApiBridge(onJsonReceived) }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var urlInput by remember {
         mutableStateOf("https://dkwin9.com/#/saasLottery/WinGo?gameCode=WinGo_30S&lottery=WinGo")
     }
     var activeExternalUrl by remember {
         mutableStateOf<String?>("https://dkwin9.com/#/saasLottery/WinGo?gameCode=WinGo_30S&lottery=WinGo")
     }
+    var helperStatus by remember {
+        mutableStateOf("🟢 DKWin9 Live Hook + DOM Scanner সক্রিয়")
+    }
+
     val pred = uiState.prediction
     val isBig = pred.predictedSize == "BIG"
     val sigColor = if (isBig) NeonGreen else NeonRed
@@ -171,9 +177,9 @@ fun InteractiveWebEngineTab(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "⚡ DKWIN9 LIVE HUD • ${uiState.selectedMode.label} (${uiState.remainingSeconds}s)",
+                            text = "⚡ DKWIN9 12-FORMULA HUD • ${uiState.selectedMode.label} (${uiState.remainingSeconds}s)",
                             fontFamily = OrbitronFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -216,6 +222,27 @@ fun InteractiveWebEngineTab(
                     }
                 }
 
+                // 10-Complement + 5-Cycle Echo + Market Regime inside HUD
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "10-COMP: #${pred.tenComplementCandidate} • 5-ECHO: #${pred.fiveCycleEchoCandidate} • REPEAT: #${pred.repeatCandidate}",
+                        fontFamily = JetBrainsMonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = NeonGreen
+                    )
+                    Text(
+                        text = "CONF: ${pred.confidence}%",
+                        fontFamily = OrbitronFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = NeonAmber
+                    )
+                }
+
                 // Quick Mode Switcher inside HUD
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -228,7 +255,20 @@ fun InteractiveWebEngineTab(
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (sel) CyberCyan else Color(0xFF081521))
-                                .clickable { onSelectMode(m) }
+                                .clickable {
+                                    onSelectMode(m)
+                                    val gameCode = when (m) {
+                                        GameMode.MODE_30S -> "WinGo_30S"
+                                        GameMode.MODE_1M -> "WinGo_1M"
+                                        GameMode.MODE_3M -> "WinGo_3M"
+                                        GameMode.MODE_5M -> "WinGo_5M"
+                                    }
+                                    if (activeExternalUrl != null) {
+                                        val targetUrl = "https://dkwin9.com/#/saasLottery/WinGo?gameCode=$gameCode&lottery=WinGo"
+                                        urlInput = targetUrl
+                                        activeExternalUrl = targetUrl
+                                    }
+                                }
                                 .padding(vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -244,15 +284,16 @@ fun InteractiveWebEngineTab(
                 }
 
                 Text(
-                    text = "${pred.topWebsiteTrickBadge} • CONF: ${pred.confidence}%",
+                    text = pred.marketRegimeTitle,
                     fontFamily = JetBrainsMonoFamily,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 11.sp,
                     color = NeonAmber
                 )
             }
         }
 
-        // URL SWITCHER BAR (DKWin9 Live Game Site vs Matrix Web Engine)
+        // URL SWITCHER + DKWIN9 QUICK ACTIONS BAR
         CyberCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -299,6 +340,66 @@ fun InteractiveWebEngineTab(
                 }
 
                 if (activeExternalUrl != null) {
+                    // Quick Action Buttons for DKWin9: Jump to WinGo 30S + Force DOM Chart Scan
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(NeonAmber.copy(alpha = 0.18f))
+                                .border(1.dp, NeonAmber, RoundedCornerShape(8.dp))
+                                .clickable {
+                                    val target = "https://dkwin9.com/#/saasLottery/WinGo?gameCode=WinGo_30S&lottery=WinGo"
+                                    urlInput = target
+                                    activeExternalUrl = target
+                                    webViewRef?.loadUrl(target)
+                                    helperStatus = "⚡ WinGo 30sec পেজ ওপেন করা হয়েছে"
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "🎯 OPEN WINGO 30S",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                color = NeonAmber
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(CyberCyan.copy(alpha = 0.18f))
+                                .border(1.dp, CyberCyan, RoundedCornerShape(8.dp))
+                                .clickable {
+                                    webViewRef?.evaluateJavascript("if(window.__scanDkwinDom) window.__scanDkwinDom();", null)
+                                    helperStatus = "📊 DKWin9 বোর্ড থেকে লাইভ চার্ট ও ড্র স্ক্যান সম্পন্ন!"
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "📊 SCAN LIVE BOARD",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                color = CyberCyan
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = helperStatus,
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 10.sp,
+                        color = NeonGreen
+                    )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -324,6 +425,7 @@ fun InteractiveWebEngineTab(
                                 .clickable {
                                     val clean = if (urlInput.startsWith("http")) urlInput else "https://$urlInput"
                                     activeExternalUrl = clean
+                                    webViewRef?.loadUrl(clean)
                                 }
                                 .padding(horizontal = 14.dp, vertical = 14.dp)
                         ) {
@@ -346,51 +448,24 @@ fun InteractiveWebEngineTab(
                     factory = { ctx ->
                         try {
                             WebView(ctx).apply {
+                                webViewRef = this
                                 layoutParams = ViewGroup.LayoutParams(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.MATCH_PARENT
                                 )
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
+                                settings.databaseEnabled = true
                                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                CookieManager.getInstance().setAcceptCookie(true)
+                                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                                 addJavascriptInterface(bridge, "AndroidBridge")
                                 webViewClient = object : WebViewClient() {
                                     override fun onPageFinished(view: WebView?, url: String?) {
                                         super.onPageFinished(view, url)
-                                        // Inject XHR & fetch interceptor so DKWin9's live game draws
-                                        // are piped directly into our Quantum Engine!
+                                        // Inject XHR, Fetch, AND Live DOM History/Chart Scanner for DKWin9
                                         view?.evaluateJavascript(
-                                            """
-                                            (function() {
-                                                if (window.__dkwinHooked) return;
-                                                window.__dkwinHooked = true;
-                                                const origFetch = window.fetch;
-                                                window.fetch = async function(...args) {
-                                                    const res = await origFetch.apply(this, args);
-                                                    try {
-                                                        const clone = res.clone();
-                                                        clone.text().then(t => {
-                                                            if (t && (t.indexOf('issueNumber') !== -1 || t.indexOf('"list"') !== -1) && window.AndroidBridge) {
-                                                                window.AndroidBridge.postJson(t);
-                                                            }
-                                                        }).catch(()=>{});
-                                                    } catch(e) {}
-                                                    return res;
-                                                };
-                                                const origOpen = XMLHttpRequest.prototype.open;
-                                                XMLHttpRequest.prototype.open = function() {
-                                                    this.addEventListener('load', function() {
-                                                        try {
-                                                            const t = this.responseText;
-                                                            if (t && (t.indexOf('issueNumber') !== -1 || t.indexOf('"list"') !== -1) && window.AndroidBridge) {
-                                                                window.AndroidBridge.postJson(t);
-                                                            }
-                                                        } catch(e) {}
-                                                    });
-                                                    return origOpen.apply(this, arguments);
-                                                };
-                                            })();
-                                            """.trimIndent(),
+                                            DKWIN9_DEEP_INTERCEPTOR_JS,
                                             null
                                         )
                                     }
@@ -420,6 +495,7 @@ fun InteractiveWebEngineTab(
                     },
                     update = { view ->
                         if (view is WebView) {
+                            webViewRef = view
                             val target = activeExternalUrl
                             if (target != null && view.tag != target) {
                                 view.tag = target
@@ -441,6 +517,78 @@ fun InteractiveWebEngineTab(
         }
     }
 }
+
+/**
+ * Deep JavaScript Hook injected into dkwin9.com:
+ * 1. Hooks window.fetch and XMLHttpRequest to capture GetHistoryIssuePage.json and saasLottery payloads.
+ * 2. Runs a DOM Scanner (__scanDkwinDom) every 2 seconds that extracts 17-digit period numbers
+ *    (e.g. 20261028100052032) and their drawn digit (0-9) directly from the rendered DKWin9 Game History
+ *    table and pipes them straight into AndroidBridge.postJson!
+ */
+private val DKWIN9_DEEP_INTERCEPTOR_JS = """
+(function() {
+    if (window.__dkwinHookedV2) return;
+    window.__dkwinHookedV2 = true;
+
+    const origFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const res = await origFetch.apply(this, args);
+        try {
+            const clone = res.clone();
+            clone.text().then(function(t) {
+                if (t && (t.indexOf('issueNumber') !== -1 || t.indexOf('"list"') !== -1) && window.AndroidBridge) {
+                    window.AndroidBridge.postJson(t);
+                }
+            }).catch(function(){});
+        } catch(e) {}
+        return res;
+    };
+
+    const origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function() {
+        this.addEventListener('load', function() {
+            try {
+                const t = this.responseText;
+                if (t && (t.indexOf('issueNumber') !== -1 || t.indexOf('"list"') !== -1) && window.AndroidBridge) {
+                    window.AndroidBridge.postJson(t);
+                }
+            } catch(e) {}
+        });
+        return origOpen.apply(this, arguments);
+    };
+
+    window.__scanDkwinDom = function() {
+        try {
+            const bodyText = document.body ? document.body.innerText : '';
+            if (!bodyText) return;
+            const lines = bodyText.split(/\n+/).map(function(s){ return s.trim(); }).filter(Boolean);
+            const extracted = [];
+            for (let i = 0; i < lines.length; i++) {
+                const m = lines[i].match(/^(20\d{13,16})$/);
+                if (m) {
+                    const period = m[1];
+                    for (let j = i + 1; j <= Math.min(i + 4, lines.length - 1); j++) {
+                        if (/^[0-9]$/.test(lines[j])) {
+                            extracted.push({
+                                issueNumber: period,
+                                number: lines[j],
+                                premium: period.slice(-5)
+                            });
+                            break;
+                        }
+                    }
+                }
+            }
+            if (extracted.length >= 4 && window.AndroidBridge) {
+                window.AndroidBridge.postJson(JSON.stringify({ data: { list: extracted } }));
+            }
+        } catch(e) {}
+    };
+
+    setInterval(window.__scanDkwinDom, 2000);
+    setTimeout(window.__scanDkwinDom, 1200);
+})();
+""".trimIndent()
 
 private val ENHANCED_WINGO_HTML = """
 <!DOCTYPE html>
@@ -537,6 +685,10 @@ function analyze(H){
   const pTail=Number(String(H[0].period).slice(-2))||0;
   const seedPred=((premSum+pTail+H[0].number*3)%10)>=5?'BIG':'SMALL';
   if(seedPred==='BIG')big+=4.5; else small+=4.5;
+  if(H.length>=2 && H[0].number===H[1].number){
+    const comp10=(10-H[0].number)%10;
+    if(comp10>=5)big+=6; else small+=6;
+  }
   if(H.length>=3){
     const dSum=H[0].number+H[1].number+H[2].number+(pTail+1);
     if(dSum%2===0)big+=3.5; else small+=3.5;
@@ -547,9 +699,10 @@ function analyze(H){
   else if(st===2){if(sizes[0]==='BIG')big+=3;else small+=3;}
   const pred=big>=small?'BIG':'SMALL';
   const conf=Math.min(96,Math.max(64,Math.round(66+Math.abs(big-small)*3.2)));
-  const n1=pred==='BIG'?((H[0].number+3)%5+5):((H[0].number+2)%5);
+  const comp10=(10-H[0].number)%10;
+  const n1=pred==='BIG'?(comp10>=5?comp10:((H[0].number+3)%5+5)):(comp10<5?comp10:((H[0].number+2)%5));
   const n2=pred==='BIG'?((n1+2)%5+5):((n1+2)%5);
-  return {prediction:pred,confidence:conf,number:n1+' / '+n2,color:colorOf(n1),pattern:'⚡ WEBSITE SEED ('+seedPred+') + CHART MISSING AI'};
+  return {prediction:pred,confidence:conf,number:n1+' / '+n2,color:colorOf(n1),pattern:'⚡ 10-COMP (#'+comp10+') + SEED ('+seedPred+')'};
 }
 async function poll(){
   try{
